@@ -123,3 +123,18 @@ npm run backend:check  # requires Deno installed
 ```
 
 Tests cover Auth HTTP requests, token refresh concurrency, callbacks, error handling, API route matching, and CORS. Live email delivery, deployed functions and actual Supabase service integration require the dashboard setup above.
+
+## Phase 1 Foundation draft
+
+`migrations/20261107040000_phase1_foundation.sql` is an incremental, rerunnable draft after the base and community migrations. It has not been executed as part of the Phase 1 rework. It guards columns, constraints and triggers, seeds sports with conflict handling, and preserves existing selections on reruns. New sports tables deny browser roles all access and have RLS enabled with no browser policies. Profile validation and legacy sports synchronization use private trigger functions; there are no Foundation RPCs.
+
+The existing `pacemate` Edge Function handles these authenticated routes:
+
+- `GET /api/foundation/sports`: sport catalog.
+- `GET /api/foundation`: owner's Foundation profile, including their birthdate.
+- `PUT /api/foundation`: validated, adult-only owner save, including multiple connection modes and sport experience/intensity.
+- `GET /api/foundation/members/:id`: eligible member's public Foundation profile, with age and no birthdate or contact fields.
+
+Discovery and likes share one eligibility predicate. Members must share a connection mode. When both enable dating, reciprocal gender, interested-in and age preferences also apply, including when they share other modes. For pairs without shared dating, these preferences do not filter friendship or training connections. Blocking, suspension and target pause restrictions remain enforced. Discovery returns `compatibility` with score, reasons and factor breakdown computed server-side using the unchanged compatibility module and real profile data. Scores are never stored. Optional discovery search filters and prior-swipe exclusion narrow the discovery list; they are not additional like authorization requirements. Changes to availability, preferences or blocking after discovery can make a formerly shown profile unavailable.
+
+The historical `PHASE1_REVIEW.md` describes the original draft, before this rework. No hosted validation or SQL execution is implied by local JavaScript tests. Regenerate the backend bundle through the existing build workflow before any later, separately authorized deployment.

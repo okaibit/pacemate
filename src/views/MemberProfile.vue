@@ -2,14 +2,14 @@
 import {ref,computed,watch,onBeforeUnmount} from 'vue';
 import {useRoute} from 'vue-router';
 import {session} from '../auth.js';
-import {foundationRpc} from '../foundation/api.js';
+import {foundation} from '../foundation/api.js';
 import {MODES,computeCompatibility} from '../foundation/compatibility.js';
 import {photoUrl} from '../api.js';
 const route=useRoute(),profile=ref(null),viewer=ref(null),loading=ref(true),error=ref('');
 let sequence=0;
 onBeforeUnmount(()=>sequence++);
 const compatibility=computed(()=>profile.value&&viewer.value?computeCompatibility(viewer.value,profile.value):null);
-async function load(){const request=++sequence,owner=session.user?.id;loading.value=true;error.value='';profile.value=null;viewer.value=null;try{const [a,b]=await Promise.all([foundationRpc('foundation_profile',{},owner),foundationRpc('foundation_profile',{target:String(route.params.id)},owner)]);if(request!==sequence||session.user?.id!==owner)return;viewer.value=a;profile.value=b;}catch(e){if(request===sequence)error.value=e.message;}finally{if(request===sequence)loading.value=false;}}
+async function load(){const request=++sequence,owner=session.user?.id;loading.value=true;error.value='';profile.value=null;viewer.value=null;try{const [a,b]=await Promise.all([foundation.profile(null,owner),foundation.profile(String(route.params.id),owner)]);if(request!==sequence||session.user?.id!==owner)return;viewer.value=a;profile.value=b;}catch(e){if(request===sequence)error.value=e.message;}finally{if(request===sequence)loading.value=false;}}
 watch(()=>route.params.id,load,{immediate:true});
 </script>
 <template>

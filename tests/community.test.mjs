@@ -197,3 +197,91 @@ test('matches decodes raw profile arrays while preserving match identifiers',asy
  const response=await request('/api/matches');const data=await response.json();
  assert.equal(response.status,200);assert.equal(data.matches[0].id,22);assert.deepEqual(data.matches[0].other.sports,['Running','Football']);assert.deepEqual(data.matches[0].other.photos,['member-a/main.jpg']);
 });
+
+const foundationData={...member,current_city:'Abuja',country:'Nigeria',birthdate:'1994-04-10',connection_modes:['training_partner','friendship'],languages:['English'],preferred_days:['Monday'],preferred_times:['Morning'],preferred_intensity:'moderate',lifestyle_interests:['Reading'],user_sports:[{sport_id:'running',name:'Running',experience_level:'intermediate',preferred_intensity:'moderate'}],email:'private@example.test',phone:'123',address:'Private address'};
+const foundationPayload={name:'Alex',birthdate:'1994-04-10',city:'Abuja',country:'Nigeria',bio:'Runner',languages:['English'],photos:[],preferred_days:['Monday'],preferred_times:['Morning'],preferred_intensity:'moderate',lifestyle_interests:['Reading'],connection_modes:['training_partner','friendship'],user_sports:foundationData.user_sports};
+test('foundation reads expose birthdate only to owner and catalog requires authentication',async()=>{
+ sqlHandler=async sql=>sql.includes('AS user_sports')?[foundationData]:sql.includes('SELECT id,name FROM public.sports')?[{id:'running',name:'Running'}]:[];
+ const own=await (await request('/api/foundation')).json();assert.equal(own.profile.birthdate,foundationData.birthdate);
+ const other=await (await request('/api/foundation/members/member-b')).json();
+ for(const key of ['birthdate','email','phone','address'])assert.ok(!Object.hasOwn(other.profile,key));
+ assert.equal(typeof other.profile.age,'number');
+ assert.deepEqual((await (await request('/api/foundation/sports')).json()).sports,[{id:'running',name:'Running'}]);
+ assert.equal((await handler(new Request('https://function.test/pacemate/api/foundation/sports'))).status,401);
+});
+test('foundation rejects underage non-dating saves, invalid birthdays and modes before writing',async()=>{
+ for(const patch of [{birthdate:new Date(Date.UTC(new Date().getUTCFullYear()-17,0,1)).toISOString().slice(0,10)},{birthdate:'2000-02-30'},{connection_modes:['unknown']},{connection_modes:[]},{user_sports:[]},{user_sports:[{...foundationData.user_sports[0],experience_level:'expert'}]}]){
+  calls=[];const response=await request('/api/foundation','PUT',{...foundationPayload,...patch});assert.equal(response.status,422);assert.equal(calls.length,0);
+ }
+});
+test('foundation saves are bound to verified caller and preserve multiple modes',async()=>{
+ sqlHandler=async(sql,params)=>{
+  if(sql.startsWith('SELECT id,suspended'))return [{id:member.id,suspended:false}];
+  if(sql.startsWith('SELECT id FROM public.sports'))return [{id:'running'}];
+  if(sql.includes('AS user_sports'))return [foundationData];
+  return [];
+ };
+ const response=await request('/api/foundation','PUT',{...foundationPayload,id:'victim',user_id:'victim',verification_status:'verified'});
+ assert.equal(response.status,200);
+ const update=calls.find(c=>c.sql.startsWith('UPDATE public.profiles'));
+ assert.equal(update.params[0],member.id);assert.equal(update.params[11],'{"training_partner","friendship"}');
+ assert.ok(!update.sql.includes('verification_status='));assert.equal((await response.json()).profile.birthdate,foundationData.birthdate);
+});
+test('foundation rechecks suspension inside its save transaction',async()=>{
+ sqlHandler=async sql=>sql.startsWith('SELECT id,suspended')?[{id:member.id,suspended:true}]:[];
+ assert.equal((await request('/api/foundation','PUT',foundationPayload)).status,403);
+ assert.ok(!calls.some(c=>c.sql.startsWith('UPDATE')));
+});
+test('discovery returns deterministic compatibility from profile data without private fields',async()=>{
+ sqlHandler=async sql=>sql.includes('AS user_sports')?[{...foundationData,id:sql.includes('JOIN public.profiles v')?'member-b':member.id,distance_km:null}]:[];
+ const result=await (await request('/api/discover')).json();
+ assert.equal(result.people[0].compatibility.score,100);assert.ok(result.people[0].compatibility.reasons.includes('Both enjoy running'));
+ for(const key of ['birthdate','email','phone','address'])assert.ok(!Object.hasOwn(result.people[0],key));
+ const again=await (await request('/api/discover')).json();assert.deepEqual(again.people[0].compatibility,result.people[0].compatibility);
+});
+test('discovery and likes authorize through the same mode and conditional dating predicate',async()=>{
+ sqlHandler=async sql=>sql.includes('AS user_sports')?[{...foundationData,id:sql.includes('JOIN public.profiles v')?'member-b':member.id}]:[];
+ await request('/api/discover');
+ const discoverSQL=calls.find(c=>c.sql.includes('JOIN public.profiles v')).sql;
+ calls=[];
+ sqlHandler=async sql=>sql.includes('feature_limits')?[{hits:1}]:sql.includes('SELECT p.* FROM public.profiles p JOIN public.profiles v')?[{...foundationData,id:'member-b'}]:[];
+ assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:true})).status,200);
+ const likeSQL=calls.find(c=>c.sql.includes('JOIN public.profiles v')).sql;
+ const predicate=discoverSQL.slice(discoverSQL.indexOf('WHERE p.id<>v.id')+6,discoverSQL.indexOf('\n    AND NOT EXISTS(SELECT 1 FROM public.swipes'));
+ assert.ok(likeSQL.includes(predicate));
+ assert.ok(predicate.includes('p.connection_modes && v.connection_modes'));
+ assert.ok(predicate.includes("NOT ('dating'=ANY(p.connection_modes) AND 'dating'=ANY(v.connection_modes)) OR ("));
+ assert.ok(predicate.includes('p.gender=ANY(v.interested_in) AND v.gender=ANY(p.interested_in)'));
+ assert.ok(predicate.includes('BETWEEN v.age_min AND v.age_max'));assert.ok(predicate.includes('BETWEEN p.age_min AND p.age_max'));
+ assert.ok(calls.some(c=>c.sql.startsWith('INSERT INTO public.swipes')));
+});
+test('an ineligible or newly blocked target cannot be liked or matched',async()=>{
+ sqlHandler=async sql=>sql.includes('feature_limits')?[{hits:1}]:[];
+ assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:true})).status,404);
+ assert.ok(!calls.some(c=>c.sql.startsWith('INSERT INTO public.swipes')||c.sql.startsWith('INSERT INTO public.matches')));
+});
+test('reciprocal eligible likes create a match and return only public profile fields',async()=>{
+ sqlHandler=async sql=>{
+  if(sql.includes('feature_limits'))return [{hits:1}];
+  if(sql.includes('JOIN public.profiles v'))return [{...foundationData,id:'member-b'}];
+  if(sql.startsWith('SELECT 1 FROM public.swipes'))return [{}];
+  if(sql.startsWith('SELECT id FROM public.matches'))return [{id:42}];
+  return [];
+ };
+ const response=await request('/api/swipes','POST',{targetId:'member-b',liked:true});
+ assert.equal(response.status,200);const {match}=await response.json();assert.equal(match.id,42);
+ for(const key of ['birthdate','email','phone','address'])assert.ok(!Object.hasOwn(match.other,key));
+ assert.ok(calls.some(c=>c.sql.startsWith('INSERT INTO public.matches')));
+});
+test('the legacy profile save still rejects non-dating minors server-side',async()=>{
+ const birthdate=new Date(Date.UTC(new Date().getUTCFullYear()-17,0,1)).toISOString().slice(0,10);
+ const response=await request('/api/me','PUT',{birthdate,goal:'A training partner'});
+ assert.equal(response.status,422);assert.match((await response.json()).error,/18 or older/);
+});
+test('foundation save rejects foreign and missing photo objects before writing',async()=>{
+ sqlHandler=async sql=>sql.startsWith('SELECT id,suspended')?[{id:member.id,suspended:false}]:sql.startsWith('SELECT id FROM public.sports')?[{id:'running'}]:[];
+ for(const photos of [['member-b/foreign.jpg'],[member.id+'/missing.jpg']]){
+  calls=[];assert.equal((await request('/api/foundation','PUT',{...foundationPayload,photos})).status,422);
+  assert.ok(!calls.some(c=>c.sql.startsWith('UPDATE')));
+ }
+});

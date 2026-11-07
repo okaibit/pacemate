@@ -2,7 +2,7 @@
 import {ref,reactive,computed,onMounted,onBeforeUnmount} from 'vue';
 import {api} from '../api.js';
 import {session,loadProfile} from '../auth.js';
-import {foundationRpc} from '../foundation/api.js';
+import {foundation} from '../foundation/api.js';
 import {MODES,DAYS,TIMES,INTENSITIES,EXPERIENCE,profileCompleteness} from '../foundation/compatibility.js';
 import PhotoManager from '../components/PhotoManager.vue';
 const f=reactive({name:'',birthdate:'',city:'',country:'',bio:'',languages:[],photos:[],preferred_days:[],preferred_times:[],preferred_intensity:'',lifestyle_interests:[],connection_modes:[],user_sports:[],verification_status:'unverified'});
@@ -21,11 +21,11 @@ function split(s){return [...new Set(s.split(',').map(v=>v.trim()).filter(Boolea
 function apply(p){persistedPhotos=[...p.photos];Object.assign(f,p);languages.value=p.languages.join(', ');interests.value=p.lifestyle_interests.join(', ');}
 function toggle(values,value){const index=values.indexOf(value);index<0?values.push(value):values.splice(index,1);saved.value=false;}
 function sportChanged(sport){const index=f.user_sports.findIndex(s=>s.sport_id===sport.id);if(index>=0)f.user_sports.splice(index,1);else if(f.user_sports.length<8)f.user_sports.push({sport_id:sport.id,name:sport.name,experience_level:'',preferred_intensity:''});saved.value=false;}
-async function load(){loading.value=true;error.value='';try{const [profile,sports]=await Promise.all([foundationRpc('foundation_profile',{},owner),foundationRpc('foundation_catalog',{},owner)]);if(!currentOwner())return;if(!profile)throw new Error('Your profile is unavailable.');apply(profile);catalog.value=sports;}catch(e){if(currentOwner())error.value=e.message;}finally{if(currentOwner())loading.value=false;}}
+async function load(){loading.value=true;error.value='';try{const [profile,sports]=await Promise.all([foundation.profile(null,owner),foundation.sports(owner)]);if(!currentOwner())return;if(!profile)throw new Error('Your profile is unavailable.');apply(profile);catalog.value=sports;}catch(e){if(currentOwner())error.value=e.message;}finally{if(currentOwner())loading.value=false;}}
 async function save(){if(busy.value||photoBusy.value||!currentOwner())return;busy.value=true;error.value='';saved.value=false;try{
  const payload={...f,languages:split(languages.value),lifestyle_interests:split(interests.value)};
  const before=[...persistedPhotos];
- const result=await foundationRpc('foundation_save',{payload},owner);if(!currentOwner())return;apply(result);saved.value=true;
+ const result=await foundation.save(payload,owner);if(!currentOwner())return;apply(result);saved.value=true;
  const removed=before.filter(key=>!result.photos.includes(key));
  const cleanups=await Promise.allSettled(removed.map(key=>api('/api/photos/'+key.split('/').map(encodeURIComponent).join('/'),{method:'DELETE',expectedUserId:owner})));
  if(!currentOwner())return;

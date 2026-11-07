@@ -4,6 +4,9 @@ import { resolveRoute, allowedOrigin } from '../supabase/functions/pacemate/rout
 
 test('routes all existing workflows under the deployed and local function paths', () => {
   const routes = [
+    ['/api/foundation', 'foundation', {id:''}],
+    ['/api/foundation/sports', 'foundation', {section:'sports'}],
+    ['/api/foundation/members/member-b', 'foundation', {id:'member-b'}],
     ['/api/me', 'me', {}], ['/api/stats', 'stats', {}], ['/api/discover', 'discover', {}], ['/api/swipes', 'swipes', {}],
     ['/api/matches/12/messages', 'messages', { id: '12' }],
     ['/api/matches/12', 'matches', { id: '12' }],
