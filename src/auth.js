@@ -4,21 +4,20 @@ import { api } from "./api.js";
 import { disablePush } from "./pwa.js";
 
 export const session = reactive({ ready: false, user: null, profile: null, profileError: "", callback: null, notice: "" });
-let profileRequest = 0;
-export async function loadProfile() {
-  const id = session.user?.id;
-  const request = ++profileRequest;
-  if (!id) { session.profile = null; session.profileError = ""; return; }
-  try {
-    const result = await api("/api/me");
-    if (request === profileRequest && session.user?.id === id) {
-      session.profile = result.profile;
-      session.profileError = "";
-    }
-  } catch (error) {
-    if (request === profileRequest) session.profileError = error.message;
+let profileRequest = 0, profileFlight;
+export function loadProfile() {
+  const id=session.user?.id;
+  if(!id){session.profile=null;session.profileError="";return Promise.resolve();}
+  if(profileFlight?.id===id)return profileFlight.promise;
+  const request=++profileRequest;
+  const promise=api("/api/me").then(result=>{
+    if(request===profileRequest&&session.user?.id===id){session.profile=result.profile;session.profileError="";}
+  }).catch(error=>{
+    if(request===profileRequest&&session.user?.id===id)session.profileError=error.message;
     throw error;
-  }
+  }).finally(()=>{if(profileFlight?.request===request)profileFlight=null;});
+  profileFlight={id,request,promise};
+  return promise;
 }
 
 export async function initAuth() {
@@ -30,7 +29,7 @@ export async function initAuth() {
       if (result.type === "confirmation") session.notice = "Email confirmed. Welcome to Pacemate.";
       window.history.replaceState({}, "", window.location.pathname + window.location.search);
     }
-    session.user = await authClient.getUser();
+    session.user = result ? (await authClient.getSession())?.user || null : await authClient.getUser();
     if (session.user && window.sessionStorage.getItem("pacemate-recovery")) session.callback = "recovery";
     await loadProfile();
   } catch (error) { session.notice = error.message || "Could not restore your session."; }
@@ -47,7 +46,7 @@ export async function initAuth() {
       ++profileRequest; session.profile = null; session.profileError = ""; session.callback = null;
       window.sessionStorage.removeItem("pacemate-recovery");
     } else if (changed) {
-      setTimeout(() => loadProfile().catch(() => {}), 0);
+      loadProfile().catch(() => {});
     }
   });
 }

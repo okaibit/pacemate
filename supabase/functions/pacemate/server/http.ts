@@ -1,3 +1,4 @@
+import {stringList} from "./profile-data.js";
 import { getUser } from "./supabase.ts";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.ts";
@@ -106,8 +107,8 @@ export function parseTrip(b: any, currentCity: string) {
 export function publicProfile(p: typeof profiles.$inferSelect) {
   return {
     id: p.id, verified: !!p.verified, name: p.name, age: ageFrom(p.birthdate), gender: p.gender, goal: p.goal,
-    sports: p.sports, level: p.level, routine: p.routine, workStyle: p.workStyle,
-    homeCity: p.homeCity, currentCity: p.currentCity, bio: p.bio, photos: p.photos,
+    sports: stringList(p.sports), level: p.level, routine: p.routine, workStyle: p.workStyle,
+    homeCity: p.homeCity, currentCity: p.currentCity, bio: p.bio, photos: stringList(p.photos),
     ...tripOf(p),
   };
 }

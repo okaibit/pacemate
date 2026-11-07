@@ -31,8 +31,8 @@ function makeMain(key) { photos.value = [key, ...photos.value.filter((k) => k !=
         <img :src="photoUrl(k)" :alt="i === 0 ? 'Main photo' : 'Photo ' + (i + 1)">
         <span v-if="i === 0" class="main">Main</span>
         <div class="acts">
-          <button v-if="i > 0" type="button" @click="makeMain(k)">Make main</button>
-          <button type="button" @click="remove(k)" :aria-label="'Remove photo ' + (i + 1)">Remove</button>
+          <button v-if="i > 0" type="button"  :disabled="busy" @click="makeMain(k)">Make main</button>
+          <button type="button"  :disabled="busy" @click="remove(k)" :aria-label="'Remove photo ' + (i + 1)">Remove</button>
         </div>
       </li>
       <li v-if="photos.length < MAX" class="add">
@@ -56,4 +56,9 @@ img{width:100%;height:100%;object-fit:cover;display:block}
 .acts button{flex:1;font-size:12px;border:0;border-radius:12px;padding:5px;background:var(--card);color:#0F2A22;cursor:pointer}
 .add label{display:grid;place-items:center;height:100%;border:2px dashed var(--line);border-radius:12px;cursor:pointer;font-weight:700;color:var(--mute)}
 .add label:focus-within{outline:3px solid var(--coral)}
+</style>
+
+<style scoped>
+.grid{min-width:0;grid-template-columns:repeat(3,minmax(0,1fr))}.grid li{min-width:0}.acts{position:static;display:flex;flex-wrap:wrap;padding:6px 0;background:none;gap:5px}.acts button{background:var(--card);color:var(--ink);border:1px solid var(--line);min-height:36px;flex:1 1 auto;font-size:11px;padding:6px}.grid li:not(.add){overflow:visible;aspect-ratio:auto;background:none}.grid li>img{aspect-ratio:3/4;height:auto;object-fit:cover;border-radius:12px}.main{color:#19382d}.add{aspect-ratio:3/4}.add label{min-width:0;font-size:12px;padding:8px;text-align:center}.acts button:disabled{opacity:.5;cursor:wait}
+@media(max-width:600px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.acts button{min-height:40px;font-size:12px}.add label{font-size:13px}}
 </style>

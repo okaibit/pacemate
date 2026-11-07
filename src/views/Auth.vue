@@ -73,7 +73,7 @@ async function submit() {
         <button class="btn block" :disabled="busy" @click="retryProfile">Retry</button>
       </div>
       <p v-if="done" class="ok" role="status">{{ done }}</p>
-      <form v-else @submit.prevent="submit" novalidate>
+      <form v-else @submit.prevent="submit" :aria-busy="busy" novalidate>
         <label class="field"><span>Email</span><input v-model="email" type="email" placeholder="you@example.com" autocomplete="email" required></label>
         <label class="field" v-if="mode !== 'forgot'"><span>Password</span>
           <input v-model="password" type="password" :placeholder="mode === 'signup' ? 'At least 8 characters' : 'Your password'" :autocomplete="mode === 'signup' ? 'new-password' : 'current-password'" minlength="8" required>
@@ -83,7 +83,7 @@ async function submit() {
           <span>I am 18 or older and accept the <RouterLink to="/terms" target="_blank">terms</RouterLink> and <RouterLink to="/privacy" target="_blank">privacy policy</RouterLink>.</span>
         </label>
         <p v-if="err" class="err" role="alert">{{ err }}</p>
-        <button class="btn block" :disabled="busy">{{ busy ? "Please wait…" : mode === "login" ? "Log in" : mode === "signup" ? "Create account" : "Send reset link" }}</button>
+        <button class="btn block" :disabled="busy">{{ busy ? (mode === "signup" ? "Creating account…" : mode === "login" ? "Signing in…" : "Sending link…") : mode === "login" ? "Log in" : mode === "signup" ? "Create account" : "Send reset link" }}</button>
       </form>
       <div v-if="oauth.length && mode !== 'forgot' && !done" class="oauth">
         <p class="mute small">or</p>

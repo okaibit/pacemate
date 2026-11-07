@@ -1,3 +1,4 @@
+import {normalizeProfileResponse} from "../supabase/functions/pacemate/server/profile-data.js";
 import { authClient, API_URL, SUPABASE_URL, PUBLISHABLE_KEY } from "./supabase.js";
 
 export async function api(path, { method = "GET", body, raw, expectedUserId } = {}) {
@@ -19,7 +20,7 @@ export async function api(path, { method = "GET", body, raw, expectedUserId } = 
   if (res.status === 401) authClient.clear();
   if (!res.ok) throw Object.assign(new Error(data?.error || data?.message || "The backend is unavailable."), { status: res.status });
   if (!data || typeof data !== "object") throw new Error("The backend returned an unexpected response.");
-  return data;
+  return normalizeProfileResponse(data);
 }
 
 export const photoUrl = (key) => (key ? `${SUPABASE_URL}/storage/v1/object/public/photos/${key.split("/").map(encodeURIComponent).join("/")}` : "");

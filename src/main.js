@@ -6,4 +6,9 @@ import "./styles.css";
 import { registerWorker } from "./pwa.js";
 registerWorker().catch(() => {});
 
-initAuth().finally(() => createApp(App).use(router).mount("#app"));
+const boot=document.createElement('div');
+boot.className='app-boot';boot.setAttribute('role','status');
+const brand=document.createElement('strong');brand.textContent='Pacemate';
+const message=document.createElement('span');message.textContent='Opening your account…';
+boot.append(brand,message);document.body.append(boot);
+initAuth().finally(() => {createApp(App).use(router).mount("#app");boot.remove();});
