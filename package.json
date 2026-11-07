@@ -1,0 +1,26 @@
+{
+  "name": "pacemate",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173 --strictPort",
+    "build": "npm run backend:build && vite build && node scripts/package-source.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "backend:check": "deno check --config supabase/functions/pacemate/deno.json supabase/functions/pacemate/index.ts",
+    "backend:build": "node scripts/bundle-backend.mjs"
+  },
+  "dependencies": {
+    "vue": "^3.5.45",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.10",
+    "vite": "^8.3.6",
+    "drizzle-orm": "1.0.0-beta.22",
+    "rolldown": "1.2.16"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

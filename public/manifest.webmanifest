@@ -1,0 +1,11 @@
+{
+  "id": "/",
+  "name": "Pacemate",
+  "short_name": "Pacemate",
+  "start_url": "/app/today",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F3F8F5",
+  "theme_color": "#0B7A47",
+  "icons": [{"src":"/app-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}

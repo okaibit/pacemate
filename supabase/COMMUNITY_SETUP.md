@@ -1,0 +1,129 @@
+# Activate the community features
+
+The new code is built locally. Your hosted database and deployed function have not been changed automatically. Apply these steps in order; do not rerun the original database migration.
+
+## 1. Incremental migration
+
+In the existing project's SQL Editor, run the complete contents of:
+
+`supabase/migrations/20261107010000_community_features.sql`
+
+It adds moderation, verification, notifications, private chat media, session chat, premium entitlements, city coordinates and private Realtime policies. Existing profiles and the 87 seeded sessions remain intact. The migration is transactional and intended to run once.
+
+## 2. Grant administrator access
+
+Create and confirm the account you will use for moderation, and finish its profile. In SQL Editor, run the following with the administrator's actual email:
+
+```sql
+INSERT INTO public.app_admins(user_id)
+SELECT p.id
+FROM public.profiles p JOIN auth.users u ON u.id::text=p.id
+WHERE lower(u.email)=lower('trypacemate@gmail.com')
+  AND u.email_confirmed_at IS NOT NULL
+ON CONFLICT DO NOTHING;
+
+SELECT p.id,p.name
+FROM public.app_admins a JOIN public.profiles p ON p.id=a.user_id;
+```
+
+If no rows appear, check the account's email, confirmation and completed profile. Roles cannot be granted through profile fields, request bodies, email metadata or browser storage. Refresh the app after granting access; **Admin** appears in the header. Only another administrator can approve an administrator's own photo verification.
+
+## 3. Deploy
+
+```sh
+npm ci
+npm run backend:build
+npx --yes supabase@2.39.2 functions deploy pacemate --project-ref hgnxappuulufvdymodad --use-api
+npm run dev
+```
+
+Stop any existing Vite process with Ctrl+C before starting it again. The development server now keeps port 5173 fixed so it cannot silently move to an origin rejected by the API.
+
+Keep CLI version 2.39.2 on the Big Sur Mac. The deployed health response should show `version: "community-4"`.
+
+For production frontend hosting, run `npm run build` and publish `dist` to your static host. Service workers require HTTPS in production; localhost works for development. The app does not cache authenticated API data or private photos for offline use.
+
+## 4. Realtime
+
+In Supabase's Realtime settings, enable Realtime and restrict access to private channels (disable **Allow public access**). The migration creates a SELECT policy on `realtime.messages` limited to the verified user's active matches and joined/hosted sessions. Clients have no broadcast INSERT policy.
+
+Message/receipt triggers send change signals only. Message text and signed photo URLs are fetched through the authenticated API. Unmatching/blocking closes access; a previously issued photo URL expires within one minute. When WebSocket transport is unavailable, chats fall back to a 15-second refresh. Inspect the browser Network tab for a `101` WebSocket handshake and a successful `phx_join` reply.
+
+Verification selfies are private and manually reviewed against the submitted profile photos. This is a photo comparison, not a legal identity or background check. Changing profile photos removes the badge. Reviewed/withdrawn selfies are deleted immediately or by scheduled cleanup; abandoned requests expire after 30 days.
+
+## 5. Email and push delivery
+
+In-app notifications work without an external email or push provider. External delivery is opt-in; every email preference starts off. New match/message alerts avoid including message text. Session changes, cancellation notices, one-hour reminders and local-time streak reminders are queued in the same inbox.
+
+Set these Edge Function secrets when ready:
+
+| Secret | Purpose |
+|---|---|
+| `PACEMATE_APP_URL` | Your frontend origin, such as `https://pacematess.netlify.app` |
+| `RESEND_API_KEY` | Transactional email provider key |
+| `PACEMATE_EMAIL_FROM` | A sender on a domain verified with Resend |
+| `VAPID_PUBLIC_KEY` | Browser push public key |
+| `VAPID_PRIVATE_KEY` | Browser push private key |
+| `PACEMATE_TASK_SECRET` | Random secret, at least 32 characters, for scheduled delivery |
+
+The Gmail support address is a reply-to address. It does not automatically authorize Resend to send from Gmail. Configure a verified sending domain before enabling email delivery. Resend integration uses idempotency keys to avoid duplicate email when a request is retried.
+
+Generate a VAPID key pair with the official Web Push tooling from a terminal that can install packages:
+
+```sh
+npx --yes web-push@3.6.7 generate-vapid-keys
+```
+
+Store the private key only in Supabase secrets. Settings exposes only the public key. Users explicitly allow notifications in their browser and select **Enable**. Some mobile browsers require installing the PWA before enabling push.
+
+### Schedule the dispatcher
+
+Enable Supabase's `pg_cron`, `pg_net` and Vault facilities in the dashboard. In Vault, create two secrets:
+
+- `pacemate_dispatch_url`: `https://hgnxappuulufvdymodad.supabase.co/functions/v1/pacemate/api/tasks/dispatch`
+- `pacemate_task_secret`: exactly the same value as the Edge Function's `PACEMATE_TASK_SECRET`.
+
+Then run `supabase/schedule-notifications.sql` in SQL Editor. It uses Vault references rather than putting credentials into the schedule. The dispatcher handles three notifications per run, leases work, retries temporary failures at most five times per channel, and expires delivery after 24 hours. Increase throughput only after checking provider limits and function runtime logs.
+
+Without the schedule, the inbox still works, but email, push, timed reminders and periodic file cleanup do not run. This is an activation requirement, not a completed delivery test.
+
+## 6. Optional billing
+
+Billing remains disabled and no prices are invented. Existing likes remain unlimited for free. The optional subscription unlocks the **Likes you** discovery filter and up to five additional travel plans.
+
+Configure Stripe in test mode first. Create the subscription product/recurring price and the customer portal. Set:
+
+- `BILLING_ENABLED=true`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_PRICE_ID`
+- `STRIPE_WEBHOOK_SECRET`
+
+Add the webhook URL:
+
+`https://hgnxappuulufvdymodad.supabase.co/functions/v1/pacemate/api/billing/webhook`
+
+Subscribe to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated` and `customer.subscription.deleted`. The handler verifies the HMAC over the raw request body, rejects stale signatures, deduplicates event IDs and grants access from server-confirmed subscription status/expiry. Visiting a success URL never grants premium access. Hosted Checkout handles card details; this app never collects them.
+
+Test checkout, cancellation, expired/past-due access, portal access, duplicate webhook delivery and out-of-order events before enabling live payments. Account deletion cancels a recorded live subscription before deleting the account; failures prevent a false success response.
+
+## 7. City and distance discovery
+
+City search is available for every city name. Radius filters use city centres, never GPS or a home address. Common city coordinates are seeded in the migration; profiles in cities without coordinates are omitted from radius results.
+
+Additional lookup is disabled unless `PACEMATE_GEOCODING_URL` is explicitly configured with a Nominatim-compatible provider. Choose a provider deliberately; do not enable a public endpoint without checking its terms and capacity. The public OpenStreetMap Nominatim service requires at most one request per second across the entire application, cached results, identification, attribution and no autocomplete or systematic bulk lookup: https://operations.osmfoundation.org/policies/nominatim/ . The app provides a shared database rate gate and caching, but a commercial provider is preferable when usage grows. No default requests are sent to the public Nominatim service.
+
+## 8. Acceptance checks
+
+Use two disposable member accounts and a separate administrator account. Check:
+
+- Report → administrator review → warn/suspend/restore/remove photo → audit history.
+- Pending private selfie → approved/rejected → badge → photo change invalidates badge. A member cannot approve their own request or read another selfie.
+- Text and photo chat; reconnect; a conversation longer than 100 messages; receipts only after visible messages are acknowledged. Unrelated members must receive 404.
+- Session edit and cancellation notifications; concurrent RSVP at the last place; host/attendee-only group chat; leave then verify chat access is denied.
+- Arrival prompt accepts or dismisses a recent trip; accepting updates current city. Premium extra plans obey the server's entitlement and five-plan cap.
+- Notifications are user-scoped; browser denial is handled; opted-out users receive no external messages; provider failure/retry does not duplicate email.
+- Download export with multiple pages; no other member's private records or reports about the requester are included. Photo links are included; private attachment links expire after one hour.
+- Install the app on supported devices; offline view requests reconnection; logout removes this browser's push subscription.
+- Stripe test-mode checkout/webhooks, if billing is configured.
+
+Automated tests use simulated services/SQL responses. A passing build and unit suite do not establish that the new SQL, scheduled delivery, Realtime, external providers or payments work in your hosted project. Complete the checks above after deployment before launch.

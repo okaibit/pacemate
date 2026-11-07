@@ -1,0 +1,4 @@
+export function safeLink(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password?u.href:'';}catch{return '';}}
+export function firstLink(body){return safeLink(body?.match(/https?:\/\/[^\s<>]+/i)?.[0]?.replace(/[.,!?)]+$/,''));}
+export function mergeMessages(current,incoming){const map=new Map(current.map(m=>[String(m.id),m]));for(const m of incoming){let previous=map.get(String(m.id));if(m.client_id){for(const [key,old] of map)if(old.client_id===m.client_id){previous=old;map.delete(key);}}map.set(String(m.id),{...previous,...m});}return [...map.values()].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)||(Number(a.id)||0)-(Number(b.id)||0));}
+export function sameGroup(a,b){return !!a&&!!b&&a.sender_id===b.sender_id&&new Date(a.created_at).toDateString()===new Date(b.created_at).toDateString()&&Math.abs(new Date(a.created_at)-new Date(b.created_at))<300000;}
