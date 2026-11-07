@@ -1,0 +1,9 @@
+project_id = "pacemate"
+
+[functions.pacemate]
+verify_jwt = false
+entrypoint = "./functions/pacemate/_bundle/index.js"
+import_map = "./functions/pacemate/deno.json"
+
+[functions.send-push]
+verify_jwt = false

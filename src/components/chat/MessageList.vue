@@ -1,0 +1,18 @@
+<script setup>
+import {ref,watch,nextTick,onMounted,onBeforeUnmount} from 'vue';
+import MessageBubble from './MessageBubble.vue';
+import {sameGroup} from '../../composables/chat-model.js';
+const props=defineProps({messages:Array,me:String,loading:Boolean,hasOlder:Boolean});
+const emit=defineEmits(['older','visible','react','forward','retry','image']);
+const box=ref(null);let olderHeight=0,atBottom=true;
+function scroll(){const el=box.value;if(!el)return;atBottom=el.scrollHeight-el.scrollTop-el.clientHeight<65;if(el.scrollTop<60&&props.hasOlder&&!props.loading){olderHeight=el.scrollHeight;emit('older');}report();}
+function report(){if(document.visibilityState!=='visible'||!box.value)return;const rect=box.value.getBoundingClientRect();const ids=[...box.value.querySelectorAll('[data-message]')].filter(el=>{const r=el.getBoundingClientRect();return Math.min(r.bottom,rect.bottom)-Math.max(r.top,rect.top)>=Math.min(40,r.height);}).map(el=>Number(el.dataset.message)).filter(Number.isSafeInteger);if(ids.length)emit('visible',ids);}
+watch(()=>props.messages,async(next,previous)=>{const outgoing=next.at(-1)?.sender_id===props.me&&next.at(-1)?.id!==previous?.at(-1)?.id;await nextTick();const el=box.value;if(!el)return;if(olderHeight){el.scrollTop+=el.scrollHeight-olderHeight;olderHeight=0;}else if(atBottom||outgoing)el.scrollTop=el.scrollHeight;report();},{flush:'post'});
+const day=iso=>new Date(iso).toLocaleDateString([],{day:'numeric',month:'long',year:'numeric'});
+onMounted(()=>{document.addEventListener('visibilitychange',report);window.addEventListener('resize',report);});onBeforeUnmount(()=>{document.removeEventListener('visibilitychange',report);window.removeEventListener('resize',report);});
+</script>
+<template><div ref="box" class="message-list" role="region" aria-label="Conversation messages" tabindex="0" @scroll.passive="scroll" @load.capture="report"><button v-if="hasOlder" class="older" :disabled="loading" @click="olderHeight=box.scrollHeight;$emit('older')">{{ loading?'Loading…':'Earlier messages' }}</button><p v-else-if="loading" class="state" role="status">Loading…</p><p v-if="!loading&&!messages.length" class="state">Say hello </p><template v-for="(message,index) in messages" :key="message.id"><div v-if="!index||day(message.created_at)!==day(messages[index-1].created_at)" class="date"><span>{{ day(message.created_at) }}</span></div><div :data-message="message.id" :class="{'group-start':!sameGroup(messages[index-1],message)}"><MessageBubble :message="message" :mine="message.sender_id===me" :tail="!sameGroup(message,messages[index+1])" @react="$emit('react',$event)" @forward="$emit('forward',$event)" @retry="$emit('retry',$event)" @image="$emit('image',$event)"/></div></template></div></template>
+<style scoped>
+.message-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:8px 12px 22px;background-color:#0b141a;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='180' viewBox='0 0 160 180'%3E%3Cg stroke='%238699a2' opacity='.065' fill='none' stroke-width='1.4'%3E%3Cpath d='m20 20 5-8 5 8 8 2-6 6 1 9-8-4-8 4 1-9-6-6zM100 90q-15-15 0-25q15-5 20 10t-20 15zM50 130l12-12 10 10-12 12zM110 20q25 5 15 25l-15-5zM15 95q10-20 18 0t18 0M85 150q12-18 24 0M130 145l7 15 7-15'/%3E%3C/g%3E%3C/svg%3E")}.date{text-align:center;margin:12px 0 17px}.date span,.state{background:#18252d;color:#bbc5cb;padding:6px 12px;border-radius:12px;font-size:11px}.group-start{margin-top:12px}.older{display:block;margin:8px auto;color:#72d6bd;border:0;border-radius:12px;background:#202c33;padding:8px 14px;cursor:pointer}.state{text-align:center;width:fit-content;margin:20px auto}
+</style>
+

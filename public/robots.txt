@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /api/
+Disallow: /download/
+
+Sitemap: https://trypacemate.omejeelijahokai02.workers.dev/sitemap.xml

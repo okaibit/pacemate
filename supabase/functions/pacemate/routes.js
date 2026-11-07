@@ -1,0 +1,39 @@
+const routes = [
+  ["chat", /^\/api\/matches\/(\d+)\/chat$/, ["id"]],
+  ["admin", /^\/api\/admin(?:\/(reports|blocks|verifications|members|actions)(?:\/([^/]+))?)?$/, ["section","id"]],
+  ["verification", /^\/api\/verification$/, []],
+  ["export", /^\/api\/export$/, []],
+  ["settings", /^\/api\/settings(?:\/(blocks)(?:\/([^/]+))?)?$/, ["section","id"]],
+  ["notifications", /^\/api\/notifications(?:\/(push|unsubscribe))?$/, ["action"]],
+  ["billing", /^\/api\/billing(?:\/(config|checkout|portal|webhook))?$/, ["action"]],
+  ["tasks", /^\/api\/tasks\/dispatch$/, []],
+  ["trips", /^\/api\/trips(?:\/(arrive|dismiss))?$/, ["action"]],
+  ["trips", /^\/api\/trips\/([^/]+)$/, ["id"]],
+  ["attachments", /^\/api\/matches\/(\d+)\/attachments$/, ["id"]],
+  ["eventchat", /^\/api\/events\/(\d+)\/messages$/, ["id"]],
+  ["health", /^\/api\/health$/, []],
+  ["stats", /^\/api\/stats$/, []],
+  ["me", /^\/api\/me$/, []],
+  ["discover", /^\/api\/discover$/, []],
+  ["swipes", /^\/api\/swipes$/, []],
+  ["messages", /^\/api\/matches\/(\d+)\/messages$/, ["id"]],
+  ["matches", /^\/api\/matches(?:\/(\d+))?$/, ["id"]],
+  ["photos", /^\/api\/photos(?:\/([^/]+)\/([^/]+))?$/, ["user", "file"]],
+  ["events", /^\/api\/events(?:\/(\d+)(?:\/(rsvp))?)?$/, ["id", "action"]],
+  ["safety", /^\/api\/(?:block|report)$/, []],
+  ["today", /^\/api\/today(?:\/(badges|checkin|workouts|answer|goal|challenges|kudos)(?:\/([^/]+)(?:\/(leaderboard))?)?)?$/, ["section", "id", "sub"]],
+];
+
+export function resolveRoute(pathname) {
+  const path = pathname.replace(/^\/(?:functions\/v1\/)?pacemate(?=\/|$)/, "");
+  for (const [handler, pattern, names] of routes) {
+    const match = path.match(pattern);
+    if (match) return { handler, params: Object.fromEntries(names.map((name, i) => [name, match[i + 1] || ""])) };
+  }
+  return null;
+}
+
+export function allowedOrigin(origin, configured) {
+  const origins = (configured || "http://localhost:5173,http://127.0.0.1:5173,https://pacematess.netlify.app").split(",").map(s => s.trim());
+  return !origin || origins.includes(origin);
+}

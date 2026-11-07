@@ -1,0 +1,19 @@
+# Pacemate
+
+> Pacemate is a free dating and community app for athletes and active singles (18+). It matches people by shared sports, fitness level, training routine and city, and helps them meet at local group sessions such as runs, rides, climbs, yoga and surf.
+
+## Key facts
+
+- Free to join; 18+ only; works in the browser on phone and desktop.
+- Matching: members choose sports, level, usual training time, city and what they are looking for (a relationship, something casual, a training partner or friends). A mutual like creates a match and opens a private chat.
+- Community events: weekly group sessions in cities across Europe, the Americas, Africa, Asia and Oceania.
+- Daily features: workout logging, wellbeing check-ins, streaks and weekly goals, monthly challenges with city leaderboards, a question of the day, and kudos between matches.
+- Safety: only matches can message, members can block and report, and first meetings are encouraged at public group sessions.
+
+## Pages
+
+- [Home](https://trypacemate.omejeelijahokai02.workers.dev/): overview, sample profiles, upcoming sessions and FAQ
+- [Sign up](https://trypacemate.omejeelijahokai02.workers.dev/signup): create a free profile
+- [Safety tips](https://trypacemate.omejeelijahokai02.workers.dev/safety)
+- [Privacy policy](https://trypacemate.omejeelijahokai02.workers.dev/privacy)
+- [Terms of service](https://trypacemate.omejeelijahokai02.workers.dev/terms)
