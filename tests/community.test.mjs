@@ -184,3 +184,16 @@ test('preview enrichment stays off without explicit provider opt-in',async()=>{
  const response=await request('/api/matches/22/chat','POST',{messageId:123});assert.equal(response.status,200);assert.equal((await response.json()).message.id,123);
  assert.ok(!fetchCalls.some(call=>call.url.includes('microlink')));assert.ok(!calls.some(call=>call.sql.startsWith('UPDATE public.messages')));
 });
+
+test('matches surfaces a wrapped database disconnect as a retryable failure with a request reference',async()=>{
+ sqlHandler=async sql=>{if(sql.includes('FROM public.matches m JOIN public.profiles'))throw new Error('private query',{cause:Object.assign(new Error('private connection'),{code:'CONNECTION_CLOSED'})});return [];};
+ const response=await request('/api/matches');const data=await response.json();
+ assert.equal(response.status,503);assert.equal(data.code,'CONNECTION_CLOSED');assert.match(data.requestId,/^[0-9a-f-]{36}$/);
+ assert.ok(!JSON.stringify(data).includes('private'));
+});
+
+test('matches decodes raw profile arrays while preserving match identifiers',async()=>{
+ sqlHandler=async sql=>sql.includes('FROM public.matches m JOIN public.profiles')?[{...member,sports:'{Running,Football}',photos:'{member-a/main.jpg}',match_id:22,matched_at:'2026-11-07T12:00:00Z',last:null,unread:0}]:[];
+ const response=await request('/api/matches');const data=await response.json();
+ assert.equal(response.status,200);assert.equal(data.matches[0].id,22);assert.deepEqual(data.matches[0].other.sports,['Running','Football']);assert.deepEqual(data.matches[0].other.photos,['member-a/main.jpg']);
+});

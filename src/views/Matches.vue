@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import {session} from "../auth.js";
 import { api } from "../api.js";
 import Avatar from "../components/Avatar.vue";
 import TripBadge from "../components/TripBadge.vue";
@@ -7,14 +8,21 @@ import TripBadge from "../components/TripBadge.vue";
 const list = ref([]), loading = ref(true), err = ref("");
 const newMatches=computed(()=>list.value.filter(m=>!m.last));
 const conversations=computed(()=>list.value.filter(m=>m.last));
-let timer;
+let timer,disposed=false;
+const refreshing=ref(false),viewer=session.user?.id;
 async function load() {
-  try { list.value = (await api("/api/matches")).matches; err.value = ""; }
-  catch (e) { err.value = e.message; }
-  finally { loading.value = false; }
+  if(refreshing.value||disposed)return;
+  refreshing.value=true;
+  try {
+    const result=await api("/api/matches",{expectedUserId:viewer});
+    if(!disposed){list.value=result.matches;err.value="";}
+  } catch(e) {
+    if(!disposed){err.value=e.message;if(e.requestId)console.warn('Matches request failed',{code:e.code,requestId:e.requestId});}
+  } finally {refreshing.value=false;if(!disposed)loading.value=false;}
 }
-onMounted(() => { load(); timer = setInterval(() => document.visibilityState === "visible" && load(), 15000); });
-onBeforeUnmount(() => clearInterval(timer));
+function visible(){if(document.visibilityState==='visible')load();}
+onMounted(()=>{load();timer=setInterval(visible,15000);document.addEventListener('visibilitychange',visible);});
+onBeforeUnmount(()=>{disposed=true;clearInterval(timer);document.removeEventListener('visibilitychange',visible);});
 const when = (iso) => {
   const d = new Date(iso), diff = (Date.now() - d) / 1000;
   if (diff < 60) return "now";
@@ -26,14 +34,14 @@ const when = (iso) => {
 <template>
   <div class="matches-page">
     <header class="matches-heading"><h1 class="h">Matches<span>.</span></h1><RouterLink to="/app/discover" class="btn ghost sm">Discover </RouterLink></header>
-    <p v-if="err" class="err">{{ err }}</p>
+    <div v-if="err" class="match-error" role="alert"><p class="err">{{ err }}</p><button class="btn ghost sm" :disabled="refreshing" @click="load">{{ refreshing?'Retrying…':'Retry' }}</button></div>
     <div v-if="loading"  class="spinner"></div>
-    <div v-else-if="!list.length" class="card">
+    <div v-else-if="!list.length&&!err" class="card">
       <p style="margin-top:0"><b>No matches yet.</b></p>
       <p class="mute">Find someone who moves like you.</p>
       <RouterLink class="btn" to="/app/discover">Start discovering</RouterLink>
     </div>
-    <template v-else>
+    <template v-else-if="list.length">
     <section v-if="newMatches.length" class="new-matches"><h2>New connections<span>{{ newMatches.length }}</span></h2><div class="match-rail"><RouterLink v-for="m in newMatches" :key="m.id" :to="`/app/matches/${m.id}`" class="new-person"><span class="portrait-ring"><Avatar :person="m.other" :size="76"/></span><b>{{ m.other.name }}</b><span v-if="m.other.sports?.[0]" class="sport-name">{{ m.other.sports[0] }}</span></RouterLink></div></section>
     <h2 class="messages-title">Messages</h2>
     <p v-if="!conversations.length" class="mute quiet-empty">Say hello to your new connection.</p>
@@ -82,3 +90,5 @@ const when = (iso) => {
 <style scoped>
 .new-matches{padding:4px 0 28px}.new-matches h2,.messages-title{font:600 18px var(--display);letter-spacing:-.025em;margin:0 0 22px}.new-matches h2 span{display:inline-grid;place-items:center;min-width:23px;height:23px;border-radius:50%;background:var(--soft);color:var(--green);font:600 11px var(--body);margin-left:9px;vertical-align:middle}.match-rail{display:flex;gap:26px;overflow-x:auto;padding:5px 3px 12px}.new-person{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:84px;max-width:105px;text-decoration:none}.portrait-ring{padding:4px;border:2px solid var(--green);border-radius:50%;display:flex;transition:transform .18s}.new-person:hover .portrait-ring{transform:translateY(-3px)}.new-person b{font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sport-name{font-size:11px;color:var(--mute);margin-top:-6px}.messages-title{margin-bottom:16px}.list{padding:6px;background:var(--card);border-color:var(--line)}.item.unseen{background:var(--soft)}.item.unseen .preview{color:var(--ink);font-weight:600}.quiet-empty{padding:35px 0;border-top:1px solid var(--line);font-size:14px}.matches-heading{margin-bottom:22px}
 </style>
+
+<style scoped>.match-error{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:12px 0 20px}.match-error .err{font-size:13px;line-height:1.6;margin:0}.match-error button{flex:none}</style>

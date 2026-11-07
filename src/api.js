@@ -18,7 +18,7 @@ export async function api(path, { method = "GET", body, raw, expectedUserId } = 
   const data = await res.json().catch(() => null);
   if(expectedUserId&&(await authClient.getSession())?.user?.id!==expectedUserId)throw new Error("Your account changed. Refresh this page.");
   if (res.status === 401) authClient.clear();
-  if (!res.ok) throw Object.assign(new Error(data?.error || data?.message || "The backend is unavailable."), { status: res.status });
+  if (!res.ok) throw Object.assign(new Error(data?.error || data?.message || "The backend is unavailable."), { status: res.status, code: data?.code, requestId: data?.requestId });
   if (!data || typeof data !== "object") throw new Error("The backend returned an unexpected response.");
   return normalizeProfileResponse(data);
 }

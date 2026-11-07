@@ -1,3 +1,4 @@
+import {requestFailure} from "./request-failure.js";
 import {stringList} from "./profile-data.js";
 import { getUser } from "./supabase.ts";
 import { eq } from "drizzle-orm";
@@ -19,8 +20,9 @@ export const handle = (fn: (req: Request, ctx: any) => Promise<Response>) =>
       return await fn(req, ctx);
     } catch (e) {
       if (e instanceof HttpError) return json({ error: e.message }, e.status);
-      console.error(e);
-      return json({ error: "Something went wrong. Please try again." }, 500);
+      const failure=requestFailure(e),requestId=crypto.randomUUID();
+      console.error('pacemate request failed',{requestId,path:new URL(req.url).pathname,method:req.method,code:failure.code});
+      return json({error:failure.error,code:failure.code,requestId},failure.status);
     }
   };
 
