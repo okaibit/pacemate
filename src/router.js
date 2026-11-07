@@ -24,6 +24,8 @@ const routes = [
       { path: "notifications", component: () => import("./views/Notifications.vue"), meta: { title: "Notifications" } },
       { path: "admin", component: () => import("./views/Admin.vue"), meta: { title: "Moderation", admin: true } },
       { path: "events/:id/chat", component: () => import("./views/SessionChat.vue"), meta: { title: "Session chat" } },
+      { path: "profile/edit", component: () => import("./views/FoundationProfile.vue"), meta: { title: "Edit full profile" } },
+      { path: "profile/member/:id", component: () => import("./views/MemberProfile.vue"), meta: { title: "Member profile" } },
       { path: "profile", component: () => import("./views/Profile.vue"), meta: { title: "Your profile" } },
     ],
   },

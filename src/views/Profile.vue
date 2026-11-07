@@ -5,6 +5,7 @@ import { api } from "../api.js";
 import {disablePush} from '../composables/usePush.js';
 import { session, logout } from "../auth.js";
 import { GENDERS, GOALS, LEVELS, ROUTINES, WORK, SPORTS, CITIES, utcToday, tripMaxDate } from "../options.js";
+import ProfileFoundationSummary from "../components/ProfileFoundationSummary.vue";
 import PhotoManager from "../components/PhotoManager.vue";
 import Modal from "../components/Modal.vue";
 import ProfileCard from "../components/ProfileCard.vue";
@@ -16,7 +17,7 @@ const f = reactive({
   goal: p.goal, sports: [...p.sports], level: p.level, routine: p.routine, workStyle: p.workStyle,
   homeCity: p.homeCity, currentCity: p.currentCity, nextCity: p.nextCity || "", nextArrival: p.nextArrival || "", bio: p.bio, photos: [...p.photos], paused: p.paused,
 });
-const photoBusy=ref(false);
+const photoBusy=ref(false),foundationRevision=ref(0);
 const busy = ref(false), err = ref(""), saved = ref(false), preview = ref(false), del = ref(false), delText = ref("");
 const toggle = (arr, v, max = 99) => { const i = arr.indexOf(v); i > -1 ? arr.splice(i, 1) : arr.length < max && arr.push(v); };
 const asPublic = computed(() => ({ ...session.profile, ...f, age: session.profile.age, verified: session.profile.verified && JSON.stringify(f.photos)===JSON.stringify(session.profile.photos) }));
@@ -26,7 +27,7 @@ async function save() {
   busy.value = true; err.value = ""; saved.value = false;
   try {
     session.profile = (await api("/api/me", { method: "PUT", body: f })).profile;
-    saved.value = true;
+    saved.value = true;foundationRevision.value++;
   } catch (e) { err.value = e.message; }
   finally { busy.value = false; }
 }
@@ -49,6 +50,7 @@ async function deleteAccount() {
       <h1 class="h">Your profile</h1>
       <div class="row"><RouterLink class="btn ghost sm" to="/app/settings">Settings</RouterLink><button class="btn ghost sm" @click="preview = true">Preview</button></div>
     </div>
+    <ProfileFoundationSummary :key="foundationRevision" />
     <form @submit.prevent="save" class="stack">
       <section class="card"><h2>Photos</h2><PhotoManager v-model="f.photos" @busy="photoBusy=$event" /></section>
 
