@@ -12,8 +12,8 @@
 
 ## Pages
 
-- [Home](https://pacematess.netlify.app/): overview, sample profiles, upcoming sessions and FAQ
-- [Sign up](https://pacematess.netlify.app/signup): create a free profile
-- [Safety tips](https://pacematess.netlify.app/safety)
-- [Privacy policy](https://pacematess.netlify.app/privacy)
-- [Terms of service](https://pacematess.netlify.app/terms)
+- [Home](https://trypacemate.omejeelijahokai02.workers.dev/): overview, sample profiles, upcoming sessions and FAQ
+- [Sign up](https://trypacemate.omejeelijahokai02.workers.dev/signup): create a free profile
+- [Safety tips](https://trypacemate.omejeelijahokai02.workers.dev/safety)
+- [Privacy policy](https://trypacemate.omejeelijahokai02.workers.dev/privacy)
+- [Terms of service](https://trypacemate.omejeelijahokai02.workers.dev/terms)

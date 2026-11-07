@@ -1,6 +1,6 @@
 // Shared SEO/AEO content. Used by the landing page (visible FAQ), the router
 // (per-page meta tags) and vite.config.js (structured data + crawlable HTML).
-export const SITE_URL = "https://pacematess.netlify.app";
+export const SITE_URL = "https://trypacemate.omejeelijahokai02.workers.dev";
 export const SITE_NAME = "Pacemate";
 export const DEFAULT_TITLE = "Pacemate: dating and community for athletes and active singles";
 export const DEFAULT_DESCRIPTION =

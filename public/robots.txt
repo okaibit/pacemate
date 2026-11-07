@@ -6,4 +6,4 @@ Disallow: /reset-password
 Disallow: /api/
 Disallow: /download/
 
-Sitemap: https://pacematess.netlify.app/sitemap.xml
+Sitemap: https://trypacemate.omejeelijahokai02.workers.dev/sitemap.xml
