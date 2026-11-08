@@ -38,17 +38,15 @@ const when = (iso) => {
     <p v-if="loading" role="status">Loading matches…</p>
     <section v-else-if="!list.length&&!err" class="match-empty">
       <svg class="connection-art" viewBox="0 0 360 210" fill="none" aria-hidden="true">
-        <path d="M0 38Q180 92 360 38" stroke="var(--mute)" stroke-width="2"/>
-        <g v-for="(angle,i) in [-7,3,7]" :key="i" :transform="`translate(${27+i*108} ${57+(i===1?10:0)}) rotate(${angle} 45 60)`">
-          <rect width="90" height="128" fill="var(--bg)" stroke="var(--line)"/>
-          <path d="M7 7h76v104H7z" :fill="i===1?'var(--soft)':'var(--ink)'"/>
-          <circle cx="45" cy="36" r="12" :fill="i===1?'var(--green)':'var(--soft)'"/>
-          <path d="m24 94 14-33 18 4 14 29M38 61l-15 9m33-5 15-17" :stroke="i===1?'var(--green)':'var(--soft)'" stroke-width="7" stroke-linecap="round"/>
-          <path d="M36 0v-9h18v9" fill="var(--coral)"/>
-        </g>
+        <path d="M20 180V105a85 85 0 0 1 85-85h150a85 85 0 0 1 85 85v75" stroke="var(--line)" stroke-width="2"/>
+        <path d="M60 180V105a45 45 0 0 1 45-45h150a45 45 0 0 1 45 45v75" stroke="var(--green)" stroke-width="2"/>
+        <path d="M40 180V105a65 65 0 0 1 65-65h150a65 65 0 0 1 65 65v75" stroke="var(--mute)" stroke-width="2" stroke-dasharray="7 9"/>
+        <circle class="pacer-pulse" cx="180" cy="40" r="12" fill="var(--coral)" opacity=".2"/>
+        <circle cx="180" cy="40" r="5" fill="var(--coral)"/>
       </svg>
-      <h2>A connection <em>ahead.</em></h2>
-      <RouterLink class="btn" to="/app/discover">Discover people</RouterLink>
+      <h2>No training partners on your track yet.</h2>
+      <p class="match-empty-copy">Join an active session or drop your pace to get matched with runners nearby.</p>
+      <RouterLink class="btn pacer-cta" to="/app/events">Find your pacer ⚡</RouterLink>
     </section>
     <template v-else-if="list.length">
     <section v-if="newMatches.length" class="new-matches"><h2>New connections<span>{{ newMatches.length }}</span></h2><div class="match-rail"><RouterLink v-for="m in newMatches" :key="m.id" :to="`/app/matches/${m.id}`" class="new-person"><span class="portrait-ring"><Avatar :person="m.other" :size="76"/></span><b>{{ m.other.name }}</b><span v-if="m.other.sports?.[0]" class="sport-name">{{ m.other.sports[0] }}</span></RouterLink></div></section>
@@ -105,4 +103,10 @@ const when = (iso) => {
 <style scoped>
 .match-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:55vh;gap:30px;text-align:center}
 .connection-art{width:100%;max-width:420px;height:auto}.match-empty h2{font:400 clamp(30px,6vw,42px)/1.15 var(--editorial)}.match-empty em{color:var(--coral)}
+</style>
+
+<style scoped>
+.match-empty{gap:22px}.match-empty h2{max-width:440px;margin:0}.match-empty-copy{max-width:370px;margin:0;color:var(--mute);line-height:1.65}.pacer-cta{border-radius:var(--radius-pill)}.pacer-pulse{animation:pacer-pulse 2.4s ease-in-out infinite;transform-origin:180px 40px}
+@keyframes pacer-pulse{50%{opacity:.08;transform:scale(1.5)}}
+@media(prefers-reduced-motion:reduce){.pacer-pulse{animation:none}}
 </style>

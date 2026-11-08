@@ -1,7 +1,16 @@
 // Supabase Auth's HTTP API keeps authentication independent of the hosting provider.
-// Only access/refresh tokens are persisted. Passwords are never stored.
-export function createAuthClient({ url, key, storage, fetcher = fetch, location }) {
+// Sessions are persisted; callback transactions use per-tab sessionStorage. Passwords are never stored.
+export function createAuthClient({ url, key, storage, transactionStorage = storage, fetcher = fetch, location }) {
   const storageKey = `pacemate-auth:${url}`;
+  const transactionKey = `${storageKey}:transaction`;
+  const random = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, "0")).join("");
+  function begin(kind, path = "/") {
+    const transaction = { state: random(), kind, createdAt: Date.now(), ...(kind === "oauth" ? { verifier: random() } : {}) };
+    transactionStorage.setItem(transactionKey, JSON.stringify(transaction));
+    const redirect = new URL(path, location.origin);
+    redirect.searchParams.set("auth_state", transaction.state);
+    return { transaction, redirect: redirect.href };
+  }
   const listeners = new Set();
   let refreshing;
   const read = () => { try { return JSON.parse(storage.getItem(storageKey) || "null"); } catch { return null; } };
@@ -53,16 +62,33 @@ export function createAuthClient({ url, key, storage, fetcher = fetch, location 
     return refreshing;
   }
   async function handleCallback() {
-    const params = new URLSearchParams(location.hash.slice(1));
-    if (params.has("error_description")) throw new Error(params.get("error_description"));
-    if (!params.get("access_token")) return null;
+    const params = new URLSearchParams((location.hash || "").slice(1));
+    const query = new URLSearchParams(location.search || "");
+    const isCallback = query.has("code") || query.has("auth_state") || ["access_token", "refresh_token", "error", "error_description"].some(key => params.has(key) || query.has(key));
+    if (!isCallback) return null;
+    let pending;
+    try { pending = JSON.parse(transactionStorage.getItem(transactionKey) || "null"); }
+    catch { pending = null; }
+    finally { transactionStorage.removeItem(transactionKey); }
+    const invalid = () => new Error("Sign-in callback rejected. Start sign-in again in this browser; the link is missing, expired or already used.");
+    if (!pending || query.getAll("auth_state").length !== 1 || query.get("auth_state") !== pending.state || !Number.isFinite(pending.createdAt) || Date.now() - pending.createdAt > 60 * 60 * 1000 || pending.createdAt > Date.now()) throw invalid();
+    if (params.has("error") || params.has("error_description") || query.has("error") || query.has("error_description")) throw new Error("Sign-in was cancelled or failed. Start sign-in again.");
+    if (pending.kind === "oauth") {
+      if (!pending.verifier || query.getAll("code").length !== 1 || !query.get("code") || params.has("access_token") || params.has("refresh_token")) throw invalid();
+      const data = await request("/token?grant_type=pkce", { body: { auth_code: query.get("code"), code_verifier: pending.verifier } });
+      if (!data.access_token || !data.refresh_token) throw new Error("Sign-in callback returned an incomplete session. Start sign-in again.");
+      const user = await request("/user", { method: "GET", token: data.access_token });
+      saveTokens({ ...data, user }, "SIGNED_IN");
+      return { type: "oauth" };
+    }
+    if (!["confirmation", "recovery"].includes(pending.kind) || query.has("code") || params.get("type") !== (pending.kind === "recovery" ? "recovery" : "signup") || params.getAll("access_token").length !== 1 || !params.get("access_token") || !params.get("refresh_token")) throw invalid();
     const user = await request("/user", { method: "GET", token: params.get("access_token") });
     saveTokens({ access_token: params.get("access_token"), refresh_token: params.get("refresh_token"), expires_in: params.get("expires_in"), user }, "SIGNED_IN");
-    return { type: params.get("type") === "recovery" ? "recovery" : "confirmation" };
+    return { type: pending.kind };
   }
   return {
     storageKey, getSession, handleCallback,
-    clear() { persist(null, "SIGNED_OUT"); },
+    clear() { transactionStorage.removeItem(transactionKey); persist(null, "SIGNED_OUT"); },
     onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     sync() { emit(read() ? "SIGNED_IN" : "SIGNED_OUT", read()); },
     async getUser() {
@@ -73,11 +99,15 @@ export function createAuthClient({ url, key, storage, fetcher = fetch, location 
     },
     async login(email, password) { const data = await request("/token?grant_type=password", { body: { email, password } }); saveTokens(data, "SIGNED_IN"); return data.user; },
     async signup(email, password) {
-      const data = await request(`/signup?redirect_to=${encodeURIComponent(location.origin + "/")}`, { body: { email, password, data: { terms_accepted_at: new Date().toISOString() } } });
-      if (data.access_token) saveTokens(data, "SIGNED_IN");
+      const { redirect } = begin("confirmation");
+      const data = await request(`/signup?redirect_to=${encodeURIComponent(redirect)}`, { body: { email, password } });
+      if (data.access_token) { transactionStorage.removeItem(transactionKey); saveTokens(data, "SIGNED_IN"); }
       return { ...(data.user || data), emailVerified: !!data.access_token };
     },
-    async recover(email) { await request(`/recover?redirect_to=${encodeURIComponent(location.origin + "/reset-password")}`, { body: { email } }); },
+    async recover(email) {
+      const { redirect } = begin("recovery", "/reset-password");
+      await request(`/recover?redirect_to=${encodeURIComponent(redirect)}`, { body: { email } });
+    },
     async updateUser(body) {
       const value = await getSession();
       if (!value) throw Object.assign(new Error("Please log in."), { status: 401 });
@@ -88,9 +118,17 @@ export function createAuthClient({ url, key, storage, fetcher = fetch, location 
     async logout() {
       const value = read();
       try { if (value) await request("/logout", { token: value.access_token }); }
-      finally { persist(null, "SIGNED_OUT"); }
+      finally { transactionStorage.removeItem(transactionKey); persist(null, "SIGNED_OUT"); }
     },
     getSettings: () => request("/settings", { method: "GET" }),
-    oauth(provider) { assertConfigured(); location.assign(`${url}/auth/v1/authorize?provider=${encodeURIComponent(provider)}&redirect_to=${encodeURIComponent(location.origin + "/")}`); },
+    async oauth(provider) {
+      assertConfigured();
+      const { transaction, redirect } = begin("oauth");
+      try {
+        const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(transaction.verifier)));
+        const challenge = btoa(String.fromCharCode(...digest)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+        location.assign(`${url}/auth/v1/authorize?provider=${encodeURIComponent(provider)}&redirect_to=${encodeURIComponent(redirect)}&code_challenge=${challenge}&code_challenge_method=s256`);
+      } catch (error) { transactionStorage.removeItem(transactionKey); throw error; }
+    },
   };
 }

@@ -19,4 +19,4 @@ onBeforeUnmount(()=>{document.removeEventListener('keydown',key);document.remove
 </script>
 <template><Teleport to="body"><div class="backdrop" @click.self="emit('close')"><div ref="panel" class="modal" :class="{flush,plain}" role="dialog" aria-modal="true" :aria-label="label" tabindex="-1"><slot/></div></div></Teleport></template>
 
-<style scoped>.flush{padding:0}.plain{width:calc(100% - 32px);max-width:440px;border-radius:0;background:var(--bg);box-shadow:none}</style>
+<style scoped>.flush{padding:0}.plain{width:calc(100% - 32px);max-width:440px;border-radius:24px;background:var(--bg);box-shadow:none}</style>

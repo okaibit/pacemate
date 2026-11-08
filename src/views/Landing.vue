@@ -26,7 +26,7 @@ const people = [
 ];
 
 const sports=["Running","Cycling","Climbing","Surfing","Yoga","Padel","CrossFit","Swimming","Hiking","Tennis","Triathlon","Bouldering"];
-const landingFaq = computed(() => FAQ.filter((f,i)=>[0,1,2,6].includes(i)));
+const landingFaq = computed(() => FAQ.filter((f,i)=>[0,1,2,6,7,8].includes(i)));
 
 const regions = computed(() => Object.keys(REGIONS).filter((r) => cities.value.some((c) => regionOf(c) === r)));
 const regionCities = computed(() => cities.value.filter((c) => !region.value || regionOf(c) === region.value));
@@ -46,7 +46,7 @@ onMounted(async () => {
   <div class="land">
     <nav class="top" aria-label="Main"><div class="wrap wide bar">
       <RouterLink class="logo" to="/"><span class="mark" aria-hidden="true"></span>Pacemate</RouterLink>
-      <div class="links"><a href="#profiles">Discover</a><a href="#how">How it works</a><a href="#events">Meet up</a></div>
+      <div class="links"><a href="#profiles">Discover</a><a href="#how">How it works</a><a href="#events">Sessions</a><a href="#plus">Plus</a></div>
       <RouterLink class="nav-login" :to="session.user ? appHome : '/login'">{{ session.user ? 'Open Pacemate' : 'Log in' }} <span aria-hidden="true">↗</span></RouterLink>
     </div></nav>
 
@@ -54,11 +54,11 @@ onMounted(async () => {
       <img class="hero-image" src="/images/hero.jpg" alt="Two people enjoying a run together by the sea" width="900" height="1612" fetchpriority="high">
       <div class="hero-shade" aria-hidden="true"></div>
       <div class="wrap wide hero-content">
-        <div class="hero-copy"><p class="audience">For athletes & active singles</p>
+        <div class="hero-copy"><p class="audience">Training partners. Friends. Dating.</p>
           <h1>Find someone<br>who shares<br>your <em>pace.</em></h1>
-          <p class="hero-line">A shared sport. A spark. See where it goes.</p>
+          <p class="hero-line">Meet people through the sports you love, nearby or on your next trip.</p>
           <RouterLink class="btn coral join-button" :to="primaryTo">{{ session.user ? 'Discover people' : 'Join free' }} <span aria-hidden="true">↗</span></RouterLink>
-          <p class="hero-note">Free to join. 18+.</p>
+          <p class="hero-note">Unlimited likes, matches and messages. Free. 18+.</p>
           <p v-if="!session.user" class="member-link">Already a member? <RouterLink to="/login">Log in</RouterLink></p>
         </div>
       </div>
@@ -68,7 +68,8 @@ onMounted(async () => {
     <div v-if="cities.length || stats || showCounts" class="community-strip"><dl class="wrap wide community-numbers"><div v-if="cities.length"><dt>Cities with sessions</dt><dd>{{ fmt(cities.length) }}</dd></div><div v-if="stats"><dt>Sessions</dt><dd>{{ fmt(stats.events) }}</dd></div><template v-if="showCounts"><div><dt>Members</dt><dd>{{ fmt(stats.members) }}</dd></div><div><dt>Matches</dt><dd>{{ fmt(stats.matches) }}</dd></div></template></dl><div v-if="cities.length" class="wrap wide community-cities"><span v-for="name in cities.slice(0,8)" :key="name">{{ name }}</span><span v-if="cities.length>8">+{{ cities.length-8 }} more</span></div></div>
     <div class="sports-ticker" aria-hidden="true"><div class="sports-track"><div v-for="copy in 2" :key="copy" class="sports-group"><span v-for="sport in sports" :key="sport">{{ sport }}<i>✦</i></span></div></div></div>
     <section id="profiles" class="profiles-section">
-      <div class="wrap wide"><div class="section-head"><h2>Your kind<br>of <em>chemistry.</em></h2><p>Same sport. Similar rhythm.<br>A whole new person to discover.</p></div>
+      <div class="wrap wide"><div class="section-head"><h2>Your kind<br>of <em>connection.</em></h2><p>Find a training partner, make a friend,<br>or see where a shared sport takes you.</p></div>
+        <div class="connection-modes" aria-label="Connection modes"><span>Training partner</span><span>Friendship</span><span>Dating</span></div>
         <div class="profile-rail">
           <figure v-for="p in people" :key="p.img" class="person-card"><img :src="'/images/'+p.img+'.jpg'" alt="" loading="lazy" width="640" height="794"><span v-if="p.shared" class="shared-sport">↗ {{ p.shared }}</span><figcaption><h3>{{ p.name }} <span>{{ p.city }}</span></h3><div class="sport-pills"><span>{{ p.sport }}</span><span>{{ p.routine }}</span></div></figcaption></figure>
         </div>
@@ -77,11 +78,11 @@ onMounted(async () => {
     </section>
 
     <section id="how" class="connection-section"><div class="wrap wide connection-grid">
-      <div class="connection-copy"><span class="step-index">01 / The connection</span><h2>One like.<br>A lot in <em>common.</em></h2><p>When the feeling’s mutual, the conversation opens.</p><RouterLink class="text-link" :to="primaryTo">See who you click with <span aria-hidden="true">↗</span></RouterLink></div>
-      <div class="conversation-demo" aria-label="Illustrative match and chat preview"><div class="demo-pair"><img src="/images/p1.jpg" alt="" loading="lazy"><span aria-hidden="true">♥</span><img src="/images/p4.jpg" alt="" loading="lazy"></div><p class="match-title">Found your pace.</p><div class="common-tags"><span>Running</span><span>Early risers</span></div><div class="chat-example"><div class="chat-incoming">Sunrise run, then coffee? <span>07:12</span></div><div class="chat-outgoing">You had me at coffee ☕ <span>07:13</span></div><div class="chat-incoming">Saturday? I know a good route.<span>07:13</span></div></div><small class="demo-caption">Example conversation</small></div>
+      <div class="connection-copy"><span class="step-index">01 / The connection</span><h2>One like.<br>A lot in <em>common.</em></h2><p>Choose the connections you’re open to. When you both like each other, the conversation opens. Unlimited likes, matching and messaging stay free.</p><RouterLink class="text-link" :to="primaryTo">See who you click with <span aria-hidden="true">↗</span></RouterLink></div>
+      <div class="conversation-demo" aria-label="Illustrative match and chat preview"><div class="demo-pair"><img src="/images/p1.jpg" alt="" loading="lazy"><span aria-hidden="true">♥</span><img src="/images/p4.jpg" alt="" loading="lazy"></div><p class="match-title">Found your pace.</p><div class="common-tags"><span>Running</span><span>Early risers</span></div><div class="chat-example"><div class="chat-incoming">Sunrise run, then coffee? <span>07:12</span></div><div class="chat-outgoing">You had me at coffee. <span>07:13</span></div><div class="chat-incoming">Saturday? I know a good route.<span>07:13</span></div></div><small class="demo-caption">Example conversation</small></div>
     </div></section>
 
-    <section id="events" class="meet-section"><div class="wrap wide"><div class="meet-story"><div class="meet-image"><img src="/images/date.jpg" alt="Two people sharing coffee after a workout" loading="lazy" width="1400" height="781"></div><div class="meet-copy"><span class="step-index">02 / The first plan</span><h2>Less “hey.”<br>More <em>“let’s go.”</em></h2><p>A run, a ride, a coffee after.<br>Or meet at a group session first.</p><a class="text-link" href="#sessions">Find a session <span aria-hidden="true">↓</span></a></div></div>
+    <section id="events" class="meet-section"><div class="wrap wide"><div class="meet-story"><div class="meet-image"><img src="/images/date.jpg" alt="Two people sharing coffee after a workout" loading="lazy" width="1400" height="781"></div><div class="meet-copy"><span class="step-index">02 / The first plan</span><h2>Less “hey.”<br>More <em>“let’s go.”</em></h2><p>A run, a ride, a coffee after.<br>Find a group session in your city, or explore one where you’re heading next.</p><a class="text-link" href="#sessions">Find a session <span aria-hidden="true">↓</span></a></div></div>
       <div id="sessions" class="sessions"><div class="sessions-heading"><h3>Better together.</h3><RouterLink :to="session.user ? '/app/events' : '/signup'">{{ shown.length ? 'All sessions' : 'Host a session' }} <span aria-hidden="true">↗</span></RouterLink></div>
         <div v-if="regions.length" class="session-filters"><select v-model="region" @change="city=''" aria-label="Region"><option value="">Worldwide</option><option v-for="r in regions" :key="r" :value="r">{{ r }}</option></select><select v-model="city" aria-label="City"><option value="">All cities</option><option v-for="c in regionCities" :key="c" :value="c">{{ c }}</option></select></div>
         <div v-if="shown.length" class="event-grid"><RouterLink v-for="e in shown" :key="e.id" :to="session.user ? '/app/events' : '/signup'" class="event-card"><time :datetime="e.startsAt">{{ formatEventTime(e.startsAt,e.timezone).day }} <span>{{ formatEventTime(e.startsAt,e.timezone).time }}</span></time><h4>{{ e.title }}</h4><p>{{ e.city }} · {{ e.kind }}</p><span class="event-arrow" aria-hidden="true">↗</span></RouterLink></div>
@@ -89,7 +90,12 @@ onMounted(async () => {
       </div>
     </div></section>
 
-    <section class="daily-strip"><div class="wrap wide daily-inner"><div><span class="daily-dot" aria-hidden="true"></span><h3>Your own pace matters, too.</h3><p>Check in. Log a workout. Cheer each other on.</p></div><RouterLink :to="session.user ? '/app/today' : '/signup'">A little every day <span aria-hidden="true">↗</span></RouterLink></div></section>
+    <section class="daily-strip"><div class="wrap wide daily-inner"><div><span class="daily-dot" aria-hidden="true"></span><h3>Your own pace matters, too.</h3><p>Check in, log workouts and keep your weekly goals in view. Cheer on your matches.</p></div><RouterLink :to="session.user ? '/app/today' : '/signup'">A little every day <span aria-hidden="true">↗</span></RouterLink></div></section>
+
+    <section id="plus" class="plus-section"><div class="wrap wide connection-grid">
+      <div class="connection-copy"><span class="step-index">Pacemate Plus</span><h2>More places.<br>More <em>possibilities.</em></h2><p>Explore destinations for free. With Plus, plan up to five upcoming cities and see the people who already liked you.</p><RouterLink class="text-link" :to="session.user ? (session.profile ? '/app/plus' : '/onboarding') : '/signup'">Explore Plus <span aria-hidden="true">↗</span></RouterLink></div>
+      <div class="membership-details"><h3>Free to connect.</h3><p>Unlimited likes, matching, messaging, basic discovery and profile tools. See your like count, find sessions and explore travel destinations.</p><h3>Two reasons to go Plus.</h3><dl><div><dt>See who liked you</dt><dd>View the profiles behind your received likes.</dd></div><div><dt>Plan more cities</dt><dd>Keep up to five upcoming travel cities at once.</dd></div></dl><p class="membership-note">Choose your plan and see the full charge in your billing currency on the Plus screen. Core social features stay free.</p></div>
+    </div></section>
 
     <section id="faq" class="wrap wide faq"><div><h2>A few<br>good questions.</h2><RouterLink class="text-link" to="/help">All questions ↗</RouterLink></div><div class="qa"><details v-for="f in landingFaq" :key="f.q"><summary>{{ f.q }}<span aria-hidden="true">+</span></summary><p>{{ f.a }}</p></details></div></section>
 
@@ -105,3 +111,7 @@ onMounted(async () => {
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 <style scoped>.community-strip{border-bottom:1px solid var(--line);padding:30px 0;background:var(--soft)}.community-numbers{display:flex;justify-content:center;gap:clamp(35px,7vw,100px);margin:0 auto;flex-wrap:wrap}.community-numbers>div{display:flex;flex-direction:column-reverse;gap:5px;text-align:center}.community-numbers dt{font-size:11px;color:var(--mute)}.community-numbers dd{font:600 34px var(--display);letter-spacing:-1px;margin:0;color:var(--ink)}.community-cities{display:flex;justify-content:center;gap:9px 22px;flex-wrap:wrap;margin-top:22px;font-size:11px;color:var(--mute)}.community-cities span+span:before{content:'·';margin-right:22px;color:var(--green)}.sports-ticker{overflow:hidden;background:#193d2e;color:#f3f4e9;padding:18px 0}.sports-track{display:flex;width:max-content;animation:sports-roll 42s linear infinite}.sports-group{display:flex;flex:none;align-items:center}.sports-group>span{display:flex;align-items:center;gap:34px;padding-right:34px;white-space:nowrap;font:600 20px var(--display);letter-spacing:-.02em}.sports-group i{font-style:normal;font-size:14px;color:#ee8b63}.sports-ticker:hover .sports-track{animation-play-state:paused}@keyframes sports-roll{to{transform:translateX(-50%)}}@media(prefers-reduced-motion:reduce){.sports-track{animation:none}}@media(max-width:700px){.community-strip{padding:24px 0}.community-numbers{gap:24px 36px}.community-numbers dd{font-size:29px}.community-cities{gap:8px 14px;font-size:10px}.sports-ticker{padding:14px 0}.sports-group>span{font-size:17px;gap:25px;padding-right:25px}}</style>
+<style scoped>
+.connection-modes{display:flex;flex-wrap:wrap;gap:12px 28px;margin:0 0 26px;font-size:13px;font-weight:600;color:var(--green)}.plus-section{padding:90px 0;border-bottom:1px solid var(--line)}.membership-details h3{font:600 25px var(--display);letter-spacing:-.025em;margin:0 0 14px}.membership-details>p{color:var(--mute);font-size:14px;line-height:1.8;margin:0 0 30px}.membership-details dl{margin:0}.membership-details dl>div{padding:18px 0;border-top:1px solid var(--line)}.membership-details dt{font-weight:600;font-size:16px}.membership-details dd{margin:8px 0 0;color:var(--mute);font-size:14px;line-height:1.7}.membership-details .membership-note{font-size:12px;margin:18px 0 0}.sports-group i{display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--coral);font-size:0}
+@media(max-width:700px){.plus-section{padding:55px 0}.plus-section h2{font-size:44px}.membership-details h3{font-size:23px}.hero-note{max-width:32ch;line-height:1.6}}
+</style>

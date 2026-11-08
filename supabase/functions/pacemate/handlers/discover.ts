@@ -1,7 +1,9 @@
+import {COUNTRY_BY_CODE,countryCode} from '../money/config.js';
 import {eligibilitySQL,sportsSQL,foundationProfile} from '../server/foundation.ts';
 import {computeCompatibility} from '../../../../src/foundation/compatibility.js';
 import {handle,json,requireProfile,publicProfile,HttpError} from '../server/http.ts';
 import {rows,arrayParam,camel,plusMember} from '../server/feature-db.ts';
+import {testPlusUsers} from '../server/test-plus.ts';
 import {cityCoordinates} from '../server/cities.ts';
 import {SPORTS,canonCity} from '../options.js';
 
@@ -11,6 +13,8 @@ export default handle(async(req)=>{
   const q=new URL(req.url).searchParams,sport=q.get('sport')||'',scope=q.get('scope')||'anywhere',arriving=q.get('arriving')==='1',likes=q.get('likes')==='1';
   if(sport&&!SPORTS.includes(sport))throw new HttpError(422,'Choose a valid sport.');
   if(likes&&!await plusMember(me.id))throw new HttpError(403,'See who liked you with Pacemate Plus.');
+  const requestedCountry=q.get('country')||'',country=countryCode(requestedCountry);
+  if(requestedCountry&&!country)throw new HttpError(422,'Choose a supported country.');
   const city=canonCity((q.get('city')||'').trim().slice(0,60));
   const radius=q.get('radius')?Number(q.get('radius')):null;
   if(radius!==null&&(!Number.isFinite(radius)||radius<1||radius>2000))throw new HttpError(422,'Distance must be 1–2000 km.');
@@ -22,17 +26,18 @@ export default handle(async(req)=>{
     (SELECT json_build_object('question',a.question,'answer',a.answer) FROM public.daily_answers a WHERE a.user_id=p.id AND a.day>current_date-14 ORDER BY a.day DESC LIMIT 1) AS prompt,
     EXISTS(SELECT 1 FROM public.swipes s WHERE s.swiper_id=p.id AND s.target_id=$1 AND s.liked) AS likes_you,
     coalesce(lower(p.next_city)=lower($2) AND p.next_arrival BETWEEN current_date AND current_date+60,false)
-    OR EXISTS(SELECT 1 FROM public.travel_plans t JOIN public.subscriptions sub ON sub.user_id=t.user_id WHERE t.user_id=p.id AND lower(t.city)=lower($2) AND t.arrival BETWEEN current_date AND current_date+60 AND sub.status IN('active','trialing') AND sub.current_period_end>now()) AS arriving_to_me
+    OR EXISTS(SELECT 1 FROM public.travel_plans t JOIN public.subscriptions sub ON sub.user_id=t.user_id WHERE t.user_id=p.id AND lower(t.city)=lower($2) AND t.arrival BETWEEN current_date AND current_date+60 AND public.pacemate_plus_entitled(sub) AND (sub.provider<>'test' OR sub.user_id=ANY($17::text[]))) AS arriving_to_me
     FROM public.profiles p JOIN public.profiles v ON v.id=$1 LEFT JOIN public.city_coordinates c ON lower(c.display_name)=lower(p.current_city) OR c.city_key=lower(p.current_city) WHERE ${eligibilitySQL}
-    AND NOT EXISTS(SELECT 1 FROM public.swipes s WHERE s.swiper_id=$1 AND s.target_id=p.id)
+    AND($7 OR NOT EXISTS(SELECT 1 FROM public.swipes s WHERE s.swiper_id=$1 AND s.target_id=p.id))
     AND($4='' OR $4=ANY(p.sports))
     AND(NOT $6 OR coalesce(lower(p.next_city)=lower($2) AND p.next_arrival BETWEEN current_date AND current_date+60,false)
-      OR EXISTS(SELECT 1 FROM public.travel_plans t JOIN public.subscriptions sub ON sub.user_id=t.user_id WHERE t.user_id=p.id AND lower(t.city)=lower($2) AND t.arrival BETWEEN current_date AND current_date+60 AND sub.status IN('active','trialing') AND sub.current_period_end>now()))
+      OR EXISTS(SELECT 1 FROM public.travel_plans t JOIN public.subscriptions sub ON sub.user_id=t.user_id WHERE t.user_id=p.id AND lower(t.city)=lower($2) AND t.arrival BETWEEN current_date AND current_date+60 AND public.pacemate_plus_entitled(sub) AND (sub.provider<>'test' OR sub.user_id=ANY($17::text[]))))
     AND(NOT $7 OR EXISTS(SELECT 1 FROM public.swipes s WHERE s.swiper_id=p.id AND s.target_id=$1 AND s.liked))
     AND($3='' OR $5 OR lower(p.current_city)=lower($3) OR lower(p.home_city)=lower($3) OR(lower(p.next_city)=lower($3) AND p.next_arrival BETWEEN current_date AND current_date+60)
-      OR EXISTS(SELECT 1 FROM public.travel_plans t JOIN public.subscriptions sub ON sub.user_id=t.user_id WHERE t.user_id=p.id AND lower(t.city)=lower($3) AND t.arrival BETWEEN current_date AND current_date+60 AND sub.status IN('active','trialing') AND sub.current_period_end>now()))
+      OR EXISTS(SELECT 1 FROM public.travel_plans t JOIN public.subscriptions sub ON sub.user_id=t.user_id WHERE t.user_id=p.id AND lower(t.city)=lower($3) AND t.arrival BETWEEN current_date AND current_date+60 AND public.pacemate_plus_entitled(sub) AND (sub.provider<>'test' OR sub.user_id=ANY($17::text[]))))
     AND($11::float8 IS NULL OR (c.latitude IS NOT NULL AND ${distanceSQL}<=$11::float8))
-    ORDER BY shared DESC,fit DESC,arriving_to_me DESC,distance_km ASC NULLS LAST,p.updated_at DESC,p.id LIMIT 30`,[me.id,me.currentCity,filterCity,sport,!!radius,arriving,likes,arrayParam(me.sports),origin?.latitude??null,origin?.longitude??null,radius,me.level,me.routine,me.goal]);
+    AND($15='' OR p.country_code=$15 OR upper(p.country)=$15 OR lower(p.country)=lower($16))
+    ORDER BY shared DESC,fit DESC,arriving_to_me DESC,distance_km ASC NULLS LAST,p.updated_at DESC,p.id LIMIT 30`,[me.id,me.currentCity,filterCity,sport,!!radius,arriving,likes,arrayParam(me.sports),origin?.latitude??null,origin?.longitude??null,radius,me.level,me.routine,me.goal,country||'',country?COUNTRY_BY_CODE[country].name:'',arrayParam(testPlusUsers())]);
   const [viewer]=await rows(`SELECT p.*,${sportsSQL} AS user_sports FROM public.profiles p WHERE p.id=$1`,[me.id]);
   const viewerFoundation=foundationProfile(viewer);
   const people=result.map(p=>{

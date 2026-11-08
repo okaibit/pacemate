@@ -1,6 +1,6 @@
 import {requestFailure} from "./request-failure.js";
 import {stringList} from "./profile-data.js";
-import { getUser } from "./supabase.ts";
+import { getUser, hasAdultTermsAcknowledgement } from "./supabase.ts";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.ts";
 import { profiles } from "../db/schema.ts";
@@ -35,6 +35,7 @@ export async function requireUser(req: Request) {
 /** Requires a logged-in member who has finished onboarding. */
 export async function requireProfile(req: Request) {
   const user = await requireUser(req);
+  if (!hasAdultTermsAcknowledgement(user)) throw new HttpError(403, "Confirm you are 18 or older and accept the terms before continuing.");
   const [profile] = await db.select().from(profiles).where(eq(profiles.id, user.id));
   if (!profile) throw new HttpError(403, "Finish setting up your profile first.");
   if (profile.suspended) throw new HttpError(403, "Your account is suspended. Contact trypacemate@gmail.com.");

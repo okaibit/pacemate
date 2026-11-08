@@ -13,8 +13,8 @@ const directChat = computed(() => route.meta.directChat);
 const badges = ref({ unread: 0, likesYou: 0 });
 const alerts = ref(0);
 const tabs = computed(() => windowWidth.value < 1050 ? [
-  ["/app/today", "Today", null],
   ["/app/discover", "Discover", "likesYou"],
+  ["/app/today", "Today", null],
   ["/app/matches", "Matches", "unread"],
   ["/app/events", "Events", null],
   ["/app/profile", "Profile", null],
@@ -114,4 +114,8 @@ watch(() => route.path, refresh);
  .tab>span:not(.dot){font-size:11px}
  .body{padding-bottom:calc(116px + env(safe-area-inset-bottom,0px))}
 }
+</style>
+
+<style scoped>
+@media(max-width:1049px){.tab.router-link-active{background:transparent;color:var(--ink)}.tab.router-link-active::after{content:'';position:absolute;bottom:2px;left:calc(50% - 2px);width:4px;height:4px;border-radius:50%;background:currentColor}}
 </style>

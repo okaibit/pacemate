@@ -53,7 +53,8 @@ test('rejected refresh clears the session and emits sign out', async () => {
 test('unconfirmed signup does not create an authenticated session', async () => {
   const { client } = setup(async (url, options) => {
     assert.ok(url.includes('redirect_to=http%3A%2F%2Flocalhost%3A5173%2F'));
-    assert.ok(JSON.parse(options.body).data.terms_accepted_at);
+    assert.equal(JSON.parse(options.body).data, undefined);
+    assert.ok(new URL(new URL(url).searchParams.get('redirect_to')).searchParams.get('auth_state'));
     return Response.json({ ...user, identities: [] });
   });
   assert.equal((await client.signup(user.email, 'password123')).emailVerified, false);
@@ -67,17 +68,22 @@ test('confirmed signup preserves the Supabase session', async () => {
 });
 
 test('recovery callback verifies the user before persisting callback tokens', async () => {
-  const { client } = setup(async (url, options) => {
+  const { client, location, storage } = setup(async (url, options) => {
+    if (url.includes('/recover?')) return Response.json({});
     assert.match(url, /\/user$/);
     assert.equal(options.headers.Authorization, 'Bearer recovery-access');
     return Response.json(user);
   }, '#access_token=recovery-access&refresh_token=recovery-refresh&expires_in=3600&type=recovery');
+  await client.recover(user.email);
+  location.search = '?auth_state=' + JSON.parse(storage.getItem(client.storageKey + ':transaction')).state;
   assert.deepEqual(await client.handleCallback(), { type: 'recovery' });
   assert.equal((await client.getSession()).access_token, 'recovery-access');
 });
 
 test('invalid callback tokens cannot create a session', async () => {
-  const { client } = setup(async () => Response.json({ msg: 'Invalid token' }, { status: 401 }), '#access_token=forged&refresh_token=forged');
+  const { client, location, storage } = setup(async url => url.includes('/recover?') ? Response.json({}) : Response.json({ msg: 'Invalid token' }, { status: 401 }), '#access_token=forged&refresh_token=forged&type=recovery');
+  await client.recover(user.email);
+  location.search = '?auth_state=' + JSON.parse(storage.getItem(client.storageKey + ':transaction')).state;
   await assert.rejects(client.handleCallback(), /Invalid token/);
   assert.equal(await client.getSession(), null);
 });
@@ -95,13 +101,17 @@ test('malformed success responses fail visibly', async () => {
   assert.equal(await client.getSession(), null);
 });
 
-test('OAuth redirects to the configured Supabase project and back to this origin', () => {
+test('OAuth redirects to the configured Supabase project and back to this origin', async () => {
   const { client, location } = setup();
-  client.oauth('google');
+  await client.oauth('google');
   const target = new URL(location.destination);
   assert.equal(target.origin, 'https://test.supabase.co');
   assert.equal(target.searchParams.get('provider'), 'google');
-  assert.equal(target.searchParams.get('redirect_to'), 'http://localhost:5173/');
+  const redirect = new URL(target.searchParams.get('redirect_to'));
+  assert.equal(redirect.origin, 'http://localhost:5173');
+  assert.match(redirect.searchParams.get('auth_state'), /^[a-f0-9]{64}$/);
+  assert.equal(target.searchParams.get('code_challenge_method'), 's256');
+  assert.match(target.searchParams.get('code_challenge'), /^[A-Za-z0-9_-]{43}$/);
 });
 
 test('an in-flight refresh cannot restore a session after logout', async () => {
@@ -126,10 +136,97 @@ test('a stale refresh failure cannot clear a replacement session from another ta
   assert.equal((await client.getSession()).user.id, 'other');
 });
 
-test('OAuth refuses missing Supabase configuration before navigating',()=>{
+test('OAuth refuses missing Supabase configuration before navigating',async()=>{
  for(const config of [{url:'',key:'public'},{url:'https://test.supabase.co',key:''}]){
   let navigated=false;
   const client=createAuthClient({...config,storage:{getItem:()=>null},location:{origin:'http://localhost:5173',assign(){navigated=true;}}});
-  assert.throws(()=>client.oauth('google'),/not configured/);assert.equal(navigated,false);
+  await assert.rejects(client.oauth('google'),/not configured/);assert.equal(navigated,false);
  }
+});
+
+function oauthReturn(location, code = 'one-use-code') {
+ const target = new URL(location.destination);
+ const redirect = new URL(target.searchParams.get('redirect_to'));
+ redirect.searchParams.set('code', code);
+ location.search = redirect.search;
+ location.hash = '';
+ return target;
+}
+
+test('unsolicited callbacks cannot create a session or contact Auth', async()=>{
+ for (const callback of [{search:'?code=unsolicited&auth_state=anything'}, {hash:'#access_token=access&refresh_token=refresh'}]) {
+  const {client,location}=setup(()=>{assert.fail('Unsolicited callback contacted Auth');});
+  Object.assign(location,callback);
+  await assert.rejects(client.handleCallback(), /callback rejected.*Start sign-in again/);
+  assert.equal(await client.getSession(),null);
+ }
+});
+
+test('a mismatched state consumes the pending attempt without contacting Auth',async()=>{
+ const {client,location,storage}=setup(()=>assert.fail('Mismatched state contacted Auth'));
+ await client.oauth('google');oauthReturn(location);
+ location.search=location.search.replace(/auth_state=[^&]+/,'auth_state=wrong');
+ await assert.rejects(client.handleCallback(), /callback rejected/);
+ assert.equal(storage.getItem(client.storageKey+':transaction'),undefined);
+ assert.equal(await client.getSession(),null);
+});
+
+test('normal OAuth exchanges the stored PKCE verifier and verifies the user before saving',async()=>{
+ let calls=0,verifier;
+ const {client,location,storage}=setup(async(url,options)=>{
+  calls++;
+  assert.equal(storage.getItem(client.storageKey+':transaction'),undefined);
+  assert.equal(await client.getSession(),null);
+  if(calls===1){assert.match(url,/grant_type=pkce$/);assert.deepEqual(JSON.parse(options.body),{auth_code:'one-use-code',code_verifier:verifier});return Response.json(tokens());}
+  assert.match(url,/\/user$/);assert.equal(options.headers.Authorization,'Bearer access');return Response.json(user);
+ });
+ await client.oauth('google');
+ const pending=JSON.parse(storage.getItem(client.storageKey+':transaction'));verifier=pending.verifier;
+ const target=oauthReturn(location);
+ const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier));
+ assert.equal(target.searchParams.get('code_challenge'),Buffer.from(digest).toString('base64url'));
+ assert.deepEqual(await client.handleCallback(),{type:'oauth'});
+ assert.equal((await client.getSession()).user.id,user.id);assert.equal(calls,2);
+ // Replay must not exchange again, even while a previous session exists.
+ await assert.rejects(client.handleCallback(),/callback rejected/);assert.equal(calls,2);
+});
+
+test('a code replay after clearing the established session is rejected',async()=>{
+ const {client,location}=setup(async url=>Response.json(url.includes('/token?')?tokens():user));
+ await client.oauth('google');oauthReturn(location);await client.handleCallback();client.clear();
+ await assert.rejects(client.handleCallback(),/callback rejected/);assert.equal(await client.getSession(),null);
+});
+
+test('OAuth rejects implicit tokens, expired transactions and malformed transaction storage',async()=>{
+ for(const kind of ['implicit','expired','malformed']){
+  const {client,location,storage}=setup(()=>assert.fail('Rejected callback contacted Auth'));
+  await client.oauth('google');oauthReturn(location);
+  if(kind==='implicit')location.hash='#access_token=access&refresh_token=refresh';
+  if(kind==='expired'){const pending=JSON.parse(storage.getItem(client.storageKey+':transaction'));pending.createdAt=Date.now()-3600001;storage.setItem(client.storageKey+':transaction',JSON.stringify(pending));}
+  if(kind==='malformed')storage.setItem(client.storageKey+':transaction','{broken');
+  await assert.rejects(client.handleCallback(),/callback rejected/);assert.equal(await client.getSession(),null);
+ }
+});
+
+test('OAuth survives navigation with only the same tab transaction storage',async()=>{
+ const {client,location,storage}=setup();
+ const pendingValues=new Map();
+ const transactionStorage={getItem:key=>pendingValues.get(key),setItem:(key,value)=>pendingValues.set(key,value),removeItem:key=>pendingValues.delete(key)};
+ const options={url:'https://test.supabase.co',key:'public',storage,transactionStorage,location,fetcher:async url=>Response.json(url.includes('/token?')?tokens():user)};
+ const before=createAuthClient(options);await before.oauth('google');
+ assert.equal(storage.getItem(client.storageKey+':transaction'),undefined);assert.equal(pendingValues.size,1);
+ oauthReturn(location);
+ const after=createAuthClient(options);await after.handleCallback();
+ assert.equal(pendingValues.size,0);assert.equal((await after.getSession()).user.id,user.id);
+});
+
+test('email confirmation also requires the initiating browser state and consumes it once',async()=>{
+ const {client,location,storage}=setup(async url=>Response.json(url.includes('/signup?')?{user}:user));
+ await client.signup(user.email,'password123');
+ const pending=JSON.parse(storage.getItem(client.storageKey+':transaction'));
+ location.search='?auth_state='+pending.state;
+ location.hash='#access_token=access&refresh_token=refresh&expires_in=3600&type=signup';
+ assert.deepEqual(await client.handleCallback(),{type:'confirmation'});
+ assert.equal((await client.getSession()).user.id,user.id);
+ await assert.rejects(client.handleCallback(),/callback rejected/);
 });

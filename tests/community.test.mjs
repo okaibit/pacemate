@@ -34,7 +34,7 @@ test.beforeEach(()=>{
     if(sql.includes('pg_advisory_xact_lock'))return [{}];
     return [];
   };
-  globalThis.fetch=async(url,options)=>{fetchCalls.push({url,options});if(url.endsWith('/auth/v1/user'))return Response.json({id:member.id,email:'test@example.com'});throw new Error('Unexpected external request');};
+  globalThis.fetch=async(url,options)=>{fetchCalls.push({url,options});if(url.endsWith('/auth/v1/user'))return Response.json({id:member.id,email:'test@example.com',app_metadata:{pacemate_adult_terms_accepted_at:'2026-11-08T00:00:00.000Z'}});throw new Error('Unexpected external request');};
 });
 test.afterEach(()=>{globalThis.fetch=originalFetch;});
 function request(path,method='GET',body){return handler(new Request('https://function.test/pacemate'+path,{method,headers:{Authorization:'Bearer verified-user',...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined}));}
@@ -105,8 +105,8 @@ test('background delivery requires its separate scheduler credential',async()=>{
   const response=await request('/api/tasks/dispatch','POST',{});assert.equal(response.status,401);assert.equal(calls.length,0);
 });
 test('billing is disabled without explicit configuration and signed webhooks',async()=>{
-  const response=await request('/api/billing/checkout','POST',{});assert.equal(response.status,503);
-  assert.equal((await request('/api/billing/webhook','POST',{type:'checkout.session.completed'})).status,400);
+  const response=await request('/api/billing/checkout','POST',{});assert.equal(response.status,410);
+  assert.equal((await request('/api/billing/webhook','POST',{type:'checkout.session.completed'})).status,410);
 });
 test('push rejects arbitrary network targets and requires valid subscription keys',()=>{
   const value={endpoint:'https://fcm.googleapis.com/fcm/send/random',keys:{p256dh:'a'.repeat(87),auth:'b'.repeat(22)}};
@@ -248,7 +248,7 @@ test('discovery and likes authorize through the same mode and conditional dating
  sqlHandler=async sql=>sql.includes('feature_limits')?[{hits:1}]:sql.includes('SELECT p.* FROM public.profiles p JOIN public.profiles v')?[{...foundationData,id:'member-b'}]:[];
  assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:true})).status,200);
  const likeSQL=calls.find(c=>c.sql.includes('JOIN public.profiles v')).sql;
- const predicate=discoverSQL.slice(discoverSQL.indexOf('WHERE p.id<>v.id')+6,discoverSQL.indexOf('\n    AND NOT EXISTS(SELECT 1 FROM public.swipes'));
+ const predicate=discoverSQL.slice(discoverSQL.indexOf('WHERE p.id<>v.id')+6,discoverSQL.indexOf('\n    AND($7 OR NOT EXISTS(SELECT 1 FROM public.swipes'));
  assert.ok(likeSQL.includes(predicate));
  assert.ok(predicate.includes('p.connection_modes && v.connection_modes'));
  assert.ok(predicate.includes("NOT ('dating'=ANY(p.connection_modes) AND 'dating'=ANY(v.connection_modes)) OR ("));
@@ -300,4 +300,169 @@ test('location rejects invalid coordinates, keeps no-match as manual entry, and 
  sqlHandler=async sql=>sql.includes('feature_limits')?[{hits:1}]:[];
  assert.deepEqual(await (await request('/api/location','POST',{latitude:0,longitude:0})).json(),{city:null});
  assert.equal((await handler(new Request('https://function.test/pacemate/api/location',{method:'POST',body:'{}'}))).status,401);
+});
+
+test('unacknowledged users cannot save profiles, use Foundation or reach Discover',async()=>{
+ globalThis.fetch=async()=>Response.json({id:member.id,user_metadata:{terms_accepted_at:'2026-11-08T00:00:00Z',adultTermsAccepted:true}});
+ for(const [path,method,payload] of [['/api/me','PUT',{adultTermsAccepted:true}],['/api/foundation','PUT',foundationPayload],['/api/discover','GET',undefined]]){
+  const response=await request(path,method,payload);assert.equal(response.status,403);assert.match((await response.json()).error,/accept the terms/);
+ }
+ assert.equal(calls.length,0);
+});
+
+test('acknowledgement rejects false, missing and string values before any admin write',async()=>{
+ for(const adultTermsAccepted of [false,undefined,'true']){
+  const response=await request('/api/me','POST',{adultTermsAccepted});assert.equal(response.status,422);
+ }
+ assert.ok(fetchCalls.every(call=>call.url.endsWith('/auth/v1/user')));
+ assert.equal((await handler(new Request('https://function.test/pacemate/api/me',{method:'POST',body:JSON.stringify({adultTermsAccepted:true})}))).status,401);
+});
+
+test('acknowledgement uses caller identity and server time, preserves metadata and is idempotent',async()=>{
+ let savedUser={id:member.id,app_metadata:{provider:'google'}};let writes=0;
+ globalThis.fetch=async(url,options)=>{
+  if(url.endsWith('/auth/v1/user'))return Response.json(savedUser);
+  assert.equal(url,'https://test.supabase.co/auth/v1/admin/users/'+member.id);assert.equal(options.method,'PUT');
+  const payload=JSON.parse(options.body);writes++;assert.equal(payload.app_metadata.provider,'google');
+  savedUser={...savedUser,...payload};return Response.json(savedUser);
+ };
+ const before=Date.now();
+ const response=await request('/api/me','POST',{adultTermsAccepted:true,id:'victim',acceptedAt:'1900-01-01',app_metadata:{role:'admin'}});
+ assert.equal(response.status,200);const result=await response.json();
+ assert.ok(Date.parse(result.acceptedAt)>=before&&Date.parse(result.acceptedAt)<=Date.now());
+ assert.equal(savedUser.app_metadata.role,undefined);
+ const again=await (await request('/api/me','POST',{adultTermsAccepted:true})).json();
+ assert.equal(again.acceptedAt,result.acceptedAt);assert.equal(writes,1);
+ const own=await (await request('/api/me')).json();assert.equal(own.adultTermsAccepted,true);
+});
+
+test('failed Auth admin acknowledgement is not reported as saved',async()=>{
+ globalThis.fetch=async url=>url.endsWith('/auth/v1/user')?Response.json({id:member.id}):Response.json({error:'Unavailable'},{status:503});
+ const response=await request('/api/me','POST',{adultTermsAccepted:true});assert.equal(response.status,500);
+ assert.notEqual((await response.json()).adultTermsAccepted,true);
+});
+
+test('received-like profiles require an active Plus subscription before discovery is queried',async()=>{
+ const response=await request('/api/discover?likes=1');assert.equal(response.status,403);
+ assert.ok(!calls.some(c=>c.sql.includes('JOIN public.profiles v')));
+ const entitlement=calls.find(c=>c.sql.includes('public.subscriptions'));
+ assert.ok(entitlement.sql.includes('public.pacemate_plus_entitled(subscriptions)'));
+});
+
+test('active Plus can add a validated future city; the server enforces the five-city limit',async()=>{
+ let count=0;
+ sqlHandler=async sql=>{
+  if(sql.includes('public.subscriptions'))return [{active:true}];
+  if(sql.includes('count(*)::int AS n'))return [{n:count}];
+  return [];
+ };
+ const arrival=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+ assert.equal((await request('/api/trips','POST',{city:'Lisbon',arrival})).status,201);
+ const insert=calls.find(c=>c.sql.startsWith('INSERT INTO public.travel_plans'));
+ assert.deepEqual(insert.params,[member.id,'Lisbon',arrival,null]);
+ count=5;calls=[];
+ assert.equal((await request('/api/trips','POST',{city:'Paris',arrival})).status,422);
+ assert.ok(!calls.some(c=>c.sql.startsWith('INSERT INTO public.travel_plans')));
+});
+
+test('free members can still send likes without a Plus entitlement',async()=>{
+ sqlHandler=async sql=>sql.includes('feature_limits')?[{hits:1}]:sql.startsWith('SELECT p.* FROM public.profiles p JOIN public.profiles v')?[{...member,id:'member-b'}]:[];
+ assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:true})).status,200);
+ assert.ok(calls.some(c=>c.sql.startsWith('INSERT INTO public.swipes')));
+ assert.ok(!calls.some(c=>c.sql.includes('public.subscriptions')));
+});
+
+test('the five-city Plus cap includes an upcoming primary trip from the free profile path',async()=>{
+ profile.nextCity='Paris';profile.nextArrival=new Date(Date.now()+86400000).toISOString().slice(0,10);
+ sqlHandler=async sql=>sql.includes('public.subscriptions')?[{active:true}]:sql.includes('count(*)::int AS n')?[{n:4}]:[];
+ const response=await request('/api/trips','POST',{city:'Lisbon',arrival:profile.nextArrival});assert.equal(response.status,422);assert.ok(!calls.some(c=>c.sql.startsWith('INSERT INTO public.travel_plans')));
+});
+
+test('confirming a destination changes profile geography without changing billing preferences',async()=>{
+ const arrival=new Date().toISOString().slice(0,10);
+ sqlHandler=async sql=>sql.startsWith('SELECT city,arrival,country_code')?[{city:'Lisbon',arrival,country_code:'PT'}]:[];
+ assert.equal((await request('/api/trips/arrive','POST',{tripId:'trip-a'})).status,200);
+ const update=calls.find(c=>c.sql.startsWith('UPDATE public.profiles SET current_city'));
+ assert.equal(update.params[3],'PT');assert.equal(update.params[4],'Portugal');
+ assert.ok(!calls.some(c=>c.sql.includes('billing_preferences')||c.sql.includes('UPDATE public.subscriptions')));
+});
+
+test('destination discovery excludes temporary test perks when test access is disabled',async()=>{
+ sqlHandler=async sql=>sql.includes('WHERE p.id=$1')?[foundationData]:[];
+ const response=await request('/api/discover');assert.equal(response.status,200);
+ const query=calls.find(c=>c.sql.includes('JOIN public.profiles v'));
+ assert.ok(query);assert.equal(query.params[16],'{}');
+ assert.equal(query.sql.split("sub.provider<>'test' OR sub.user_id=ANY($17::text[])").length-1,3);
+});
+
+test('received-like count does not disappear after the receiver likes or passes back',async()=>{
+ sqlHandler=async sql=>sql.includes('AS "likesYou"')?[{unread:0,likesYou:1}]:[];
+ const response=await request('/api/today/badges');assert.equal(response.status,200);
+ assert.deepEqual(await response.json(),{unread:0,likesYou:1});
+ const query=calls.find(c=>c.sql.includes('AS "likesYou"'));
+ assert.deepEqual(query.params,[member.id]);assert.ok(!query.sql.includes('s2'));
+ assert.ok(!query.sql.includes('NOT EXISTS (SELECT 1 FROM public.swipes'));
+ assert.match(query.sql,/NOT p.paused AND NOT p.suspended/);assert.match(query.sql,/public.blocks/);
+ assert.ok(!query.sql.includes('p.*'));assert.ok(!query.sql.includes('photos'));
+});
+test('Plus received-like mode includes already answered incoming likes; ordinary Discover still excludes answered profiles',async()=>{
+ sqlHandler=async sql=>sql.includes('public.subscriptions')?[{active:true}]:sql.includes('WHERE p.id=$1')?[foundationData]:[];
+ assert.equal((await request('/api/discover?likes=1')).status,200);
+ const query=calls.find(c=>c.sql.includes('JOIN public.profiles v'));
+ assert.match(query.sql,/AND\(\$7 OR NOT EXISTS\(SELECT 1 FROM public.swipes/);assert.equal(query.params[6],true);
+ calls=[];assert.equal((await request('/api/discover')).status,200);
+ assert.equal(calls.find(c=>c.sql.includes('JOIN public.profiles v')).params[6],false);
+});
+
+test('two free accounts liking each other create one match and retain one received like each',async()=>{
+ const swipes=new Map(),matches=new Map();
+ globalThis.fetch=async url=>{assert.ok(url.endsWith('/auth/v1/user'));return Response.json({id:profile.id,email:'fixture@example.test',app_metadata:{pacemate_adult_terms_accepted_at:'2026-11-08T00:00:00Z'}});};
+ sqlHandler=async(sql,params=[])=>{
+  if(sql.includes('feature_limits'))return [{hits:1}];
+  if(sql.startsWith('SELECT p.* FROM public.profiles p JOIN'))return [{...member,id:params[1]}];
+  if(sql.startsWith('INSERT INTO public.swipes')){swipes.set(params[0]+':'+params[1],params[2]);return [];}
+  if(sql.startsWith('SELECT 1 FROM public.swipes'))return swipes.get(params[0]+':'+params[1])?[{one:1}]:[];
+  if(sql.startsWith('INSERT INTO public.matches')){matches.set(params.join(':'),{id:22,user_a:params[0],user_b:params[1]});return [];}
+  if(sql.startsWith('SELECT id FROM public.matches'))return [matches.get(params.join(':'))].filter(Boolean);
+  if(sql.includes('AS "likesYou"'))return [{unread:0,likesYou:[...swipes].filter(([key,liked])=>liked&&key.endsWith(':'+params[0])).length}];
+  return [];
+ };
+ profile={...member,id:'member-a'};
+ const first=await request('/api/swipes','POST',{targetId:'member-b',liked:true});assert.equal(first.status,200);assert.equal((await first.json()).match,null);
+ profile={...member,id:'member-b'};
+ const second=await request('/api/swipes','POST',{targetId:'member-a',liked:true});assert.equal(second.status,200);assert.equal((await second.json()).match.id,22);
+ assert.equal(matches.size,1);assert.equal(swipes.size,2);
+ for(const id of ['member-a','member-b']){profile={...member,id};assert.equal((await(await request('/api/today/badges')).json()).likesYou,1);}
+ assert.ok(!calls.some(c=>c.sql.includes('public.subscriptions')),'Mutual likes and matching must remain free');
+});
+
+test('Free members can save, view, replace and clear their primary destination without Plus',async()=>{
+ let primary=null,count=0;
+ sqlHandler=async(sql,params)=>{
+  if(sql.startsWith('SELECT id,next_city,next_arrival'))return [{id:member.id,next_city:primary?.city,next_arrival:primary?.arrival}];
+  if(sql.includes('count(*)::int AS n'))return [{n:count}];
+  if(sql.startsWith('UPDATE public.profiles SET next_city=$2')){primary={city:params[1],arrival:params[2]};profile.nextCity=primary.city;profile.nextArrival=primary.arrival;}
+  if(sql.startsWith('UPDATE public.profiles SET next_city=NULL')){primary=null;profile.nextCity=null;profile.nextArrival=null;}
+  return [];
+ };
+ const arrival=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+ assert.equal((await request('/api/trips/primary','PUT',{city:'Lisbon',arrival})).status,200);
+ const list=await(await request('/api/trips')).json();assert.equal(list.plans[0].primary,true);assert.equal(list.upcomingCount,1);assert.equal(list.plus,false);
+ assert.equal((await request('/api/trips/primary','PUT',{city:'Paris',arrival})).status,200);assert.equal(primary.city,'Paris');
+ assert.equal((await request('/api/trips','POST',{city:'Berlin',arrival})).status,403);
+ assert.equal((await request('/api/trips/dismiss','POST',{})).status,200);assert.equal(primary,null);
+});
+test('downgraded members cannot add a primary destination while other upcoming destinations remain',async()=>{
+ sqlHandler=async sql=>sql.startsWith('SELECT id,next_city,next_arrival')?[{id:member.id}]:sql.includes('count(*)::int AS n')?[{n:2}]:[];
+ const arrival=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+ assert.equal((await request('/api/trips/primary','PUT',{city:'Lisbon',arrival})).status,422);
+ assert.ok(!calls.some(c=>c.sql.startsWith('UPDATE public.profiles')));assert.ok(!calls.some(c=>c.sql.startsWith('DELETE')));
+});
+test('primary destination validates date and city, uses authenticated ownership and locks the profile',async()=>{
+ const arrival=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+ sqlHandler=async sql=>sql.includes('count(*)::int AS n')?[{n:0}]:[];
+ assert.equal((await request('/api/trips/primary','PUT',{city:'Lisbon',arrival:'invalid'})).status,422);
+ assert.equal((await request('/api/trips/primary','PUT',{city:'Lisbon',arrival,userId:'victim'})).status,200);
+ assert.deepEqual(calls.find(c=>c.sql.includes('FOR UPDATE')).params,[member.id]);
+ assert.equal(calls.find(c=>c.sql.startsWith('UPDATE public.profiles SET next_city=$2')).params[0],member.id);
 });

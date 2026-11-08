@@ -84,3 +84,19 @@ export async function readImage(req: Request) {
   if(!ext)throw new Error('IMAGE_INVALID');
   return {data,ext,type:ext==='jpg'?'image/jpeg':`image/${ext}`};
 }
+
+// app_metadata can only be written by trusted Auth administration, unlike user_metadata.
+export function hasAdultTermsAcknowledgement(user: any) {
+  const value = user?.app_metadata?.pacemate_adult_terms_accepted_at;
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+export async function acknowledgeAdultTerms(user: any, accepted: unknown) {
+  if (accepted !== true) throw new Error("Confirm you are 18 or older and accept the terms.");
+  if (hasAdultTermsAcknowledgement(user)) return user.app_metadata.pacemate_adult_terms_accepted_at;
+  const timestamp = new Date().toISOString();
+  await adminRequest(`/auth/v1/admin/users/${encodeURIComponent(user.id)}`, {
+    method: "PUT", body: JSON.stringify({ app_metadata: { ...user.app_metadata, pacemate_adult_terms_accepted_at: timestamp } }),
+  });
+  return timestamp;
+}

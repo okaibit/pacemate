@@ -1,0 +1,8 @@
+[
+ {"country":"NG","currency":"NGN","interval":"week","amount":"120000","weeklyAmount":"120000","header":"Standard rate"},
+ {"country":"NG","currency":"NGN","interval":"month","amount":"300000","weeklyAmount":"69284","header":"Popular"},
+ {"country":"NG","currency":"NGN","interval":"year","amount":"2000000","weeklyAmount":"38462","header":"Save 68%"},
+ {"country":"US","currency":"USD","interval":"week","amount":"199","weeklyAmount":"199","header":"Standard rate"},
+ {"country":"US","currency":"USD","interval":"month","amount":"499","weeklyAmount":"115","header":"Popular"},
+ {"country":"US","currency":"USD","interval":"year","amount":"3499","weeklyAmount":"67","header":"Save 66%"}
+]

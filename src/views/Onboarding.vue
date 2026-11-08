@@ -7,10 +7,11 @@ import {GENDERS,GOALS,LEVELS,ROUTINES,SPORTS,CITIES} from '../options.js';
 import {ONBOARDING_STEPS,validateOnboardingStep,onboardingPayload,onboardingPreview} from '../onboarding.js';
 import PhotoManager from '../components/PhotoManager.vue';
 import ProfileCard from '../components/ProfileCard.vue';
+import {COUNTRIES,detectCountry} from '../money.js';
 import {requestLocation} from '../location.js';
 
 const router=useRouter(),owner=session.user?.id;
-const f=reactive({name:session.user?.name||'',birthdate:'',gender:'',interestedIn:[],ageMin:18,ageMax:45,goal:'',sports:[],level:'',routine:'',homeCity:'',currentCity:'',bio:'',photos:[]});
+const f=reactive({name:session.user?.name||'',birthdate:'',countryCode:detectCountry()||'NG',gender:'',interestedIn:[],ageMin:18,ageMax:45,goal:'',sports:[],level:'',routine:'',homeCity:'',currentCity:'',bio:'',photos:[]});
 const step=ref(0),err=ref(''),busy=ref(false),photoBusy=ref(false),title=ref(null);
 const cur=computed(()=>ONBOARDING_STEPS[step.value]);
 const preview=computed(()=>onboardingPreview(f));
@@ -75,7 +76,7 @@ async function signOut(){if(locked.value)return;try{await logout();await router.
      <template v-else-if="cur.key==='sports'"><p class="selection-count" aria-live="polite">{{ f.sports.length }} of 8 selected</p><div class="sports" role="group" aria-label="Sports"><button v-for="sport in SPORTS" :key="sport" type="button" :aria-pressed="f.sports.includes(sport)" :disabled="f.sports.length>=8&&!f.sports.includes(sport)" @click="toggle(f.sports,sport,8)">{{ sport }}</button></div></template>
      <div v-else-if="cur.key==='level'" class="options"><button v-for="level in LEVELS" :key="level" type="button" :aria-pressed="f.level===level" @click="f.level=f.level===level?'':level">{{ level }}</button></div>
      <div v-else-if="cur.key==='routine'" class="options"><button v-for="routine in ROUTINES" :key="routine" type="button" :aria-pressed="f.routine===routine" @click="f.routine=f.routine===routine?'':routine">{{ routine }}</button></div>
-     <template v-else-if="cur.key==='city'"><button type="button" class="location-button" :disabled="locked" @click="useLocation">{{ locationBusy?'Finding your city…':'Use my location' }}</button><p class="location-copy">With your permission, we use your location once to suggest a city. Coordinates are not saved to your profile.</p><p v-if="locationNotice" class="location-copy" role="status">{{ locationNotice }}</p><label class="field"><span>Home city</span><input v-model="f.homeCity" type="text" list="onboarding-cities" maxlength="60" autocomplete="address-level2" placeholder="Start typing your city"></label><datalist id="onboarding-cities"><option v-for="city in CITIES" :key="city" :value="city"/></datalist><details><summary>I'm currently in another city</summary><label class="field"><span>Current city</span><input v-model="f.currentCity" type="text" list="onboarding-cities" maxlength="60"></label></details></template>
+     <template v-else-if="cur.key==='city'"><label class="field"><span>Country or territory</span><select v-model="f.countryCode"><option v-for="country in COUNTRIES" :key="country.code" :value="country.code">{{country.name}}</option></select></label><button type="button" class="location-button" :disabled="locked" @click="useLocation">{{ locationBusy?'Finding your city…':'Use my location' }}</button><p class="location-copy">With your permission, we use your location once to suggest a city. Coordinates are not saved to your profile.</p><p v-if="locationNotice" class="location-copy" role="status">{{ locationNotice }}</p><label class="field"><span>Home city</span><input v-model="f.homeCity" type="text" list="onboarding-cities" maxlength="60" autocomplete="address-level2" placeholder="Start typing your city"></label><datalist id="onboarding-cities"><option v-for="city in CITIES" :key="city" :value="city"/></datalist><details><summary>I'm currently in another city</summary><label class="field"><span>Current city</span><input v-model="f.currentCity" type="text" list="onboarding-cities" maxlength="60"></label></details></template>
      <PhotoManager v-else-if="cur.key==='photos'" v-model="f.photos" @busy="photoBusy=$event" class="photos"/>
      <template v-else-if="cur.key==='bio'"><textarea v-model="f.bio" maxlength="500" rows="5" aria-label="About you" placeholder="A little about you"></textarea><p class="character-count">{{ f.bio.length }}/500</p></template>
      <div v-else-if="cur.key==='review'" class="review"><ProfileCard :person="preview"/><button type="button" class="text-button" @click="step=0;err=''">Edit your answers</button></div>
@@ -94,23 +95,23 @@ async function signOut(){if(locked.value)return;try{await logout();await router.
 button:disabled{opacity:.45;cursor:not-allowed}
 .flow{max-width:560px;margin:24px auto 0;min-width:0}
 .step-navigation{display:flex;justify-content:space-between;align-items:center;gap:20px;font-size:12px;color:var(--mute)}
-progress{appearance:none;-webkit-appearance:none;display:block;width:100%;height:3px;border:0;border-radius:0;background:var(--line);accent-color:var(--green);margin:8px 0 40px}
+progress{appearance:none;-webkit-appearance:none;display:block;width:100%;height:3px;border:0;border-radius:12px;background:var(--line);accent-color:var(--green);margin:8px 0 40px}
 progress::-webkit-progress-bar{background:var(--line)}progress::-webkit-progress-value{background:var(--green)}progress::-moz-progress-bar{background:var(--green)}
 .question{margin-bottom:30px}.question h1{font:600 clamp(29px,4vw,42px)/1.12 var(--display);letter-spacing:-.035em;margin:0;overflow-wrap:anywhere;outline:none}
 .description{font-size:14px;line-height:1.65;color:var(--mute);margin:15px 0 0}.optional{font-size:12px;color:var(--mute);margin:0 0 12px}
 .answer{margin:0;padding:0;border:0;min-width:0;min-inline-size:0}
-input,textarea{width:100%;min-width:0;min-height:54px;padding:14px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:0;font:400 16px var(--body);box-sizing:border-box}
+input,textarea{width:100%;min-width:0;min-height:54px;padding:14px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:12px;font:400 16px var(--body);box-sizing:border-box}
 input[type=date]{appearance:none;-webkit-appearance:none;min-inline-size:0}input[type=date]::-webkit-date-and-time-value{text-align:left;min-width:0}textarea{resize:vertical;line-height:1.6}
-.options{display:grid;gap:10px}.options button,.sports button{border:1px solid var(--line);border-radius:0;background:var(--bg);color:var(--ink);text-align:left;font:500 14px var(--body);padding:16px;min-height:52px;cursor:pointer}
+.options{display:grid;gap:10px}.options button,.sports button{border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);text-align:left;font:500 14px var(--body);padding:16px;min-height:52px;cursor:pointer}
 .options button[aria-pressed=true],.sports button[aria-pressed=true]{border-color:var(--ink);background:var(--soft);color:var(--ink);font-weight:700;outline:1px solid var(--ink);outline-offset:-2px}
 .sports{display:flex;gap:8px;flex-wrap:wrap}.sports button{font-size:13px;min-height:44px;padding:10px 13px}
 .selection-count,.character-count{font-size:12px;color:var(--mute);margin:0 0 14px}.character-count{text-align:right;margin:10px 0 0}
 .age-range{display:flex;align-items:center;gap:14px}.age-range label{flex:1;min-width:0;font-size:12px;color:var(--mute)}.age-range input{margin-top:8px}.age-range>span{padding-top:21px;color:var(--mute);font-size:13px}
-.location-button{width:100%;min-height:48px;border:1px solid var(--ink);border-radius:0;background:var(--bg);color:var(--ink);font:600 14px var(--body);cursor:pointer}.location-copy{font-size:12px;line-height:1.6;color:var(--mute);margin:12px 0 20px}.field span{font-size:12px;color:var(--mute)}details{margin-top:20px}summary{font-size:13px;color:var(--mute);min-height:44px;cursor:pointer;padding:10px 0}details .field{margin-top:10px}
-.actions{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-top:36px}.continue{width:100%;min-height:52px;padding:14px 20px;border:1px solid var(--ink);border-radius:0;background:var(--ink);color:var(--bg);font:600 14px var(--body);cursor:pointer}
+.location-button{width:100%;min-height:48px;border:1px solid var(--ink);border-radius:12px;background:var(--bg);color:var(--ink);font:600 14px var(--body);cursor:pointer}.location-copy{font-size:12px;line-height:1.6;color:var(--mute);margin:12px 0 20px}.field span{font-size:12px;color:var(--mute)}details{margin-top:20px}summary{font-size:13px;color:var(--mute);min-height:44px;cursor:pointer;padding:10px 0}details .field{margin-top:10px}
+.actions{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-top:36px}.continue{width:100%;min-height:52px;padding:14px 20px;border:1px solid var(--ink);border-radius:12px;background:var(--ink);color:var(--bg);font:600 14px var(--body);cursor:pointer}
 .error{font-size:13px;color:var(--danger);line-height:1.6;margin:20px 0 0}
 .review :deep(.ph){aspect-ratio:5/4;max-height:340px}.review :deep(.pc){background:var(--bg)}.review>.text-button{display:block;margin:12px auto 0}.review :deep(.info){padding:20px}.review :deep(.facts){gap:14px}
-.photos :deep(li),.photos :deep(.main),.photos :deep(.add label){border-radius:0}.photos :deep(.add label){color:var(--ink)}
+.photos :deep(li),.photos :deep(.main),.photos :deep(.add label){border-radius:12px}.photos :deep(.add label){color:var(--ink)}
 @media(min-width:701px){form{padding-bottom:30px}.answer{min-height:130px}}
 @media(max-width:600px){.onboarding{padding-left:20px;padding-right:20px}.brand{padding:16px 0}.brand>a{font-size:24px}.flow{margin-top:12px}progress{margin-bottom:30px}.question{margin-bottom:24px}.question h1{font-size:32px}.actions{margin-top:28px}.review :deep(.ph){max-height:290px}}
 </style>

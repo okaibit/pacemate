@@ -3,7 +3,7 @@ import { createAuthClient } from "./auth-client.js";
 export const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
 export const PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
 export const API_URL = (import.meta.env.VITE_API_URL || `${SUPABASE_URL}/functions/v1/pacemate`).replace(/\/$/, "");
-export const authClient = createAuthClient({ url: SUPABASE_URL, key: PUBLISHABLE_KEY, storage: window.localStorage, location: window.location });
+export const authClient = createAuthClient({ url: SUPABASE_URL, key: PUBLISHABLE_KEY, storage: window.localStorage, transactionStorage: window.sessionStorage, location: window.location });
 
 window.addEventListener("storage", event => { if (event.key === authClient.storageKey) authClient.sync(); });
 // Refresh while the app is open, including after a laptop wakes up.

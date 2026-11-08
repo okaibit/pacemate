@@ -31,5 +31,5 @@ watch(()=>route.params.id,load,{immediate:true});
  </article>
 </template>
 <style scoped>
-.member{max-width:700px;margin:auto;overflow-wrap:anywhere}.portrait{display:block;width:100%;max-height:480px;object-fit:cover;margin:24px 0}h1{font:600 clamp(32px,6vw,48px) var(--display);margin-top:24px}h2{font:600 24px var(--display)}section{border-top:1px solid var(--line);padding:24px 0}.mode{padding:8px 12px;border:1px solid var(--line)}.bio{white-space:pre-line;font:24px/1.5 Georgia,serif;margin:30px 0}.score{font:600 56px var(--display);color:var(--green);margin:12px 0}.score span{font-size:20px;color:var(--mute)}li{margin:12px 0}
+.member{max-width:700px;margin:auto;overflow-wrap:anywhere}.portrait{display:block;width:100%;max-height:480px;object-fit:cover;margin:24px 0}h1{font:600 clamp(32px,6vw,48px) var(--display);margin-top:24px}h2{font:600 24px var(--display)}section{border-top:1px solid var(--line);padding:24px 0}.mode{border-radius:999px;padding:8px 12px;border:1px solid var(--line)}.bio{white-space:pre-line;font:24px/1.5 Georgia,serif;margin:30px 0}.score{font:600 56px var(--display);color:var(--green);margin:12px 0}.score span{font-size:20px;color:var(--mute)}li{margin:12px 0}
 </style>

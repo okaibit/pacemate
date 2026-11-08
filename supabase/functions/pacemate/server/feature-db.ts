@@ -1,3 +1,4 @@
+import { testPlusAllowed } from "./test-plus.ts";
 import { withDatabaseDeadline } from "../db/index.ts";
 import { requireProfile, HttpError } from "./http.ts";
 
@@ -34,7 +35,7 @@ export async function rateLimit(userId: string, kind: string, limit: number, sec
   if (!result.length) throw new HttpError(429,"Too many requests. Try again shortly.");
 }
 export async function plusMember(userId: string) {
-  return !!(await rows(`SELECT 1 FROM public.subscriptions WHERE user_id=$1 AND status IN('active','trialing') AND current_period_end>now()`,[userId])).length;
+  return !!(await rows(`SELECT 1 FROM public.subscriptions WHERE user_id=$1 AND public.pacemate_plus_entitled(subscriptions) AND (provider<>'test' OR $2::boolean)`,[userId,testPlusAllowed(userId)])).length;
 }
 export async function notify(tx: any, userId: string, kind: string,title: string,body: string,href: string,dedupe: string,actor: string|null=null) {
   await tx.unsafe('SELECT public.pacemate_notify($1,$2,$3,$4,$5,$6,$7)',[userId,kind,title,body,href,dedupe,actor]);

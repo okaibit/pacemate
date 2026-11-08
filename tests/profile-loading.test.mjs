@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {rolldown} from 'rolldown';
-const state=globalThis.__profileLoading={pending:[],listener:null};
+const state=globalThis.__profileLoading={pending:[],listener:null,callbackError:false};
 const compiled=await rolldown({input:'src/auth.js',plugins:[{name:'profile-fixtures',resolveId(id){if(['vue','./supabase.js','./api.js','./pwa.js'].includes(id))return '\0profile:'+id;},load(id){
  if(id==='\0profile:vue')return 'export const reactive=value=>value;';
- if(id==='\0profile:./supabase.js')return `export const authClient={handleCallback:async()=>null,getUser:async()=>null,onChange:fn=>{globalThis.__profileLoading.listener=fn;}};`;
+ if(id==='\0profile:./supabase.js')return `export const authClient={handleCallback:async()=>{if(globalThis.__profileLoading.callbackError)throw new Error("Sign-in callback rejected. Start sign-in again in this browser.");return null;},getUser:async()=>null,onChange:fn=>{globalThis.__profileLoading.listener=fn;}};`;
  if(id==='\0profile:./api.js')return `export const api=()=>new Promise((resolve,reject)=>globalThis.__profileLoading.pending.push({resolve,reject}));`;
  if(id==='\0profile:./pwa.js')return 'export const disablePush=async()=>{};';
 }}]});
@@ -24,4 +24,14 @@ test('an old account response cannot overwrite a newer account profile',async()=
 test('a failed profile request can be retried',async()=>{
  session.user={id:'member-c'};const failed=loadProfile();state.pending.shift().reject(new Error('Offline'));await assert.rejects(failed,/Offline/);
  const retry=loadProfile();assert.equal(state.pending.length,1);state.pending.shift().resolve({profile:null});await retry;assert.equal(session.profileError,'');
+});
+
+test('callback rejection routes to Auth, removes the callback URL and exposes the error',async()=>{
+ const originalWindow=globalThis.window;
+ const paths=[];globalThis.window={history:{replaceState:(state,title,path)=>paths.push(path)}};
+ state.callbackError=true;
+ try {
+  await initAuth();
+  assert.equal(session.callback,'error');assert.deepEqual(paths,['/login']);assert.match(session.notice,/callback rejected/);assert.equal(session.ready,true);
+ } finally {globalThis.window=originalWindow;state.callbackError=false;}
 });

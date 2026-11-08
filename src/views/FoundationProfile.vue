@@ -1,4 +1,5 @@
 <script setup>
+import {COUNTRIES} from '../money.js';
 import {ref,reactive,computed,onMounted,onBeforeUnmount} from 'vue';
 import {api} from '../api.js';
 import {session,loadProfile} from '../auth.js';
@@ -44,7 +45,7 @@ onMounted(load);
    <fieldset :disabled="busy"><legend>About you</legend>
     <label class="field"><span>Display name</span><input v-model="f.name" required minlength="2" maxlength="30" autocomplete="nickname"></label>
     <label class="field"><span>Date of birth · only you</span><input type="date" v-model="f.birthdate" :max="today" required></label>
-    <div class="place"><label class="field"><span>City</span><input v-model="f.city" required maxlength="60" autocomplete="address-level2"></label><label class="field"><span>Country</span><input v-model="f.country" required maxlength="80" autocomplete="country-name"></label></div>
+    <div class="place"><label class="field"><span>City</span><input v-model="f.city" required maxlength="60" autocomplete="address-level2"></label><label class="field"><span>Country</span><select v-model="f.country"><option v-if="f.country&&!COUNTRIES.some(c=>c.name===f.country)" :value="f.country">{{f.country}}</option><option value="" disabled>Choose your country</option><option v-for="country in COUNTRIES" :key="country.code" :value="country.name">{{country.name}}</option></select></label></div>
     <label class="field"><span>Bio</span><textarea v-model="f.bio" maxlength="500" rows="4"></textarea></label>
     <label class="field"><span>Languages, separated by commas</span><input v-model="languages" maxlength="600" placeholder="English, French"></label>
     <label class="field"><span>Lifestyle interests, separated by commas</span><input v-model="interests" maxlength="600" placeholder="Reading, cooking"></label>
@@ -61,5 +62,5 @@ onMounted(load);
  </main>
 </template>
 <style scoped>
-.foundation{max-width:760px;min-width:0;margin:auto}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:28px}h1{font:600 clamp(30px,6vw,46px)/1.1 var(--display);margin:12px 0}em{font-family:Georgia,serif;color:var(--coral)}fieldset{border:0;border-top:1px solid var(--line);padding:24px 0;margin:0;min-width:0}legend{font:600 22px var(--display);padding-right:16px}.place{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}.field input,.field select{min-width:0;max-width:100%}.choices{display:flex;gap:14px 22px;flex-wrap:wrap;margin:12px 0 20px}.choices label{display:flex;align-items:center;gap:9px;min-height:44px}.choices input{width:20px;height:20px;accent-color:var(--green)}.completion label{display:flex;justify-content:space-between}progress{width:100%;height:8px;accent-color:var(--green);margin-top:12px}.sport-detail{border-top:1px solid var(--line);margin-top:20px;padding-top:20px}.sport-detail h3{margin:0 0 12px}.lbl{font-weight:700}button.chip{border-radius:0}.stack{gap:16px}@media(min-width:600px){.place{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.foundation{max-width:760px;min-width:0;margin:auto}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:28px}h1{font:600 clamp(30px,6vw,46px)/1.1 var(--display);margin:12px 0}em{font-family:Georgia,serif;color:var(--coral)}fieldset{border:0;border-top:1px solid var(--line);padding:24px 0;margin:0;min-width:0}legend{font:600 22px var(--display);padding-right:16px}.place{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}.field input,.field select{min-width:0;max-width:100%}.choices{display:flex;gap:14px 22px;flex-wrap:wrap;margin:12px 0 20px}.choices label{display:flex;align-items:center;gap:9px;min-height:44px}.choices input{width:20px;height:20px;accent-color:var(--green)}.completion label{display:flex;justify-content:space-between}progress{width:100%;height:8px;accent-color:var(--green);margin-top:12px}.sport-detail{border-top:1px solid var(--line);margin-top:20px;padding-top:20px}.sport-detail h3{margin:0 0 12px}.lbl{font-weight:700}button.chip{border-radius:999px}.stack{gap:16px}@media(min-width:600px){.place{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>

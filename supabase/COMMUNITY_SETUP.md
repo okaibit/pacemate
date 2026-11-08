@@ -1,3 +1,5 @@
+> Billing update: Stripe is disconnected. Use [TEST_PLUS_SETUP.md](TEST_PLUS_SETUP.md) for allowlisted test memberships. Older payment-provider instructions below are historical.
+
 # Activate the community features
 
 The new code is built locally. Your hosted database and deployed function have not been changed automatically. Apply these steps in order; do not rerun the original database migration.
@@ -91,20 +93,7 @@ Without the schedule, the inbox still works, but email, push, timed reminders an
 
 Billing remains disabled and no prices are invented. Existing likes remain unlimited for free. The optional subscription unlocks the **Likes you** discovery filter and up to five additional travel plans.
 
-Configure Stripe in test mode first. Create the subscription product/recurring price and the customer portal. Set:
-
-- `BILLING_ENABLED=true`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_PRICE_ID`
-- `STRIPE_WEBHOOK_SECRET`
-
-Add the webhook URL:
-
-`https://hgnxappuulufvdymodad.supabase.co/functions/v1/pacemate/api/billing/webhook`
-
-Subscribe to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated` and `customer.subscription.deleted`. The handler verifies the HMAC over the raw request body, rejects stale signatures, deduplicates event IDs and grants access from server-confirmed subscription status/expiry. Visiting a success URL never grants premium access. Hosted Checkout handles card details; this app never collects them.
-
-Test checkout, cancellation, expired/past-due access, portal access, duplicate webhook delivery and out-of-order events before enabling live payments. Account deletion cancels a recorded live subscription before deleting the account; failures prevent a false success response.
+The global regional billing implementation supersedes the single `STRIPE_PRICE_ID` setup. Follow [GLOBAL_BILLING_SETUP.md](GLOBAL_BILLING_SETUP.md) before deploying the new backend. Apply its incremental migration, map approved regional prices to verified Stripe price IDs, reconcile existing subscribers and validate sandbox checkout/webhooks first. A redirect alone never grants Plus.
 
 ## 7. City and distance discovery
 

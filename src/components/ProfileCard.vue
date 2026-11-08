@@ -68,11 +68,11 @@ const hasDetails = computed(() => !!(props.person.bio || props.person.prompt || 
   </article>
 </template>
 <style scoped>
-.pc{background:var(--bg);border:1px solid var(--line);overflow:hidden;border-radius:0;min-width:0}
+.pc{background:var(--bg);border:1px solid var(--line);overflow:hidden;border-radius:24px;min-width:0}
 .ph{position:relative;aspect-ratio:4/5;background:var(--soft);min-width:0;overflow:hidden}
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
 .none{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;color:var(--ink)}
-.initials{display:grid;place-items:center;width:76px;height:76px;border:1px solid var(--line);font:600 30px var(--display);letter-spacing:.02em}
+.initials{border-radius:18px;display:grid;place-items:center;width:76px;height:76px;border:1px solid var(--line);font:600 30px var(--display);letter-spacing:.02em}
 .photo-status{font-size:12px;color:var(--mute)}
 .photo-pages{position:absolute;top:0;left:12px;right:12px;display:flex;gap:5px;z-index:2}
 .photo-pages button{flex:1;min-width:0;min-height:44px;padding:0;border:0;background:none;cursor:pointer;display:flex;align-items:center}
@@ -89,7 +89,7 @@ const hasDetails = computed(() => !!(props.person.bio || props.person.prompt || 
 .connection-modes span{font-size:12px;line-height:1.5;color:var(--mute)}
 .connection-modes span+span:before{content:'/';display:inline-block;margin-right:6px;color:var(--mute)}
 .connection-modes .shared{color:var(--ink);font-weight:600}
-.hero-sports span{border:1px solid var(--line);padding:5px 8px;font-size:11px;line-height:1.4;color:var(--mute)}
+.hero-sports span{border-radius:999px;border:1px solid var(--line);padding:5px 8px;font-size:11px;line-height:1.4;color:var(--mute)}
 .hero-sports .shared{background:var(--soft);color:var(--ink)}
 .legacy-intent{font-size:13px;color:var(--mute);margin:0}
 .compatibility{padding-top:15px;border-top:1px solid var(--line)}
@@ -103,7 +103,7 @@ const hasDetails = computed(() => !!(props.person.bio || props.person.prompt || 
 .details-toggle{display:flex;justify-content:space-between;align-items:center;gap:14px;width:100%;min-height:44px;border:0;border-top:1px solid var(--line);padding:13px 0 0;background:none;color:var(--mute);font:500 12px var(--body);text-align:left;cursor:pointer}
 .details-toggle span{font-size:20px}
 .info{padding:24px;overflow-wrap:anywhere}
-.pc .tag{border-radius:0}.info h2{font-size:28px}.where{margin:6px 0 12px}.chips{margin:12px 0}
+.pc .tag{border-radius:999px}.info h2{font-size:28px}.where{margin:6px 0 12px}.chips{margin:12px 0}
 .facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:12px 0}
 .facts dt{font-size:11px;color:var(--mute);margin-bottom:4px}.facts dd{margin:0;font-size:13px;font-weight:600}
 .bio{margin:16px 0 0;white-space:pre-line;line-height:1.7;font-size:14px}

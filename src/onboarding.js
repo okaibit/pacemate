@@ -43,7 +43,7 @@ export function validateOnboardingStep(key,f,today=new Date()) {
 }
 export function onboardingPayload(f){
  const {name,birthdate,gender,interestedIn,ageMin,ageMax,goal,sports,level,routine,homeCity,currentCity,bio,photos}=f;
- return {name:name.trim(),birthdate,gender,interestedIn:[...interestedIn],ageMin,ageMax,goal,sports:[...sports],level,routine,homeCity:homeCity.trim(),currentCity:currentCity.trim()||homeCity.trim(),bio,photos:[...photos]};
+ return {...(f.countryCode?{countryCode:f.countryCode}:{}),name:name.trim(),birthdate,gender,interestedIn:[...interestedIn],ageMin,ageMax,goal,sports:[...sports],level,routine,homeCity:homeCity.trim(),currentCity:currentCity.trim()||homeCity.trim(),bio,photos:[...photos]};
 }
 // The preview uses the public shape. Private account fields and birthdate stay out.
 export function onboardingPreview(f,today=new Date()){

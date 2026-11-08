@@ -11,6 +11,7 @@ const script=compileScript(descriptor,{id:'onboarding-flow'}).content;
 const built=await rolldown({input:'onboarding-fixture',plugins:[{name:'onboarding-fixtures',resolveId(id){
  if(id==='onboarding-fixture')return '\0onboarding';
  if(['vue','vue-router','../api.js','../auth.js'].includes(id)||id.endsWith('.vue'))return '\0fixture:'+id;
+ if(id==='../money.js')return resolve('src/money.js');
  if(id==='../options.js')return resolve('src/options.js');
  if(id==='../onboarding.js')return resolve('src/onboarding.js');
  if(id==='../location.js')return '\0fixture:location';

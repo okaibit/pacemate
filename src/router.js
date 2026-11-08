@@ -17,6 +17,7 @@ const routes = [
       { path: "", redirect: "/app/discover" },
       { path: "today", component: () => import("./views/Today.vue"), meta: { title: "Today" } },
       { path: "discover", component: () => import("./views/Discover.vue"), meta: { title: "Discover" } },
+      { path: "plus", component: () => import("./views/Plus.vue"), meta: { title: "Pacemate Plus" } },
       { path: "likes", component: () => import("./views/Likes.vue"), meta: { title: "Likes" } },
       { path: "matches", component: () => import("./views/Matches.vue"), meta: { title: "Matches" } },
       { path: "matches/:id", component: () => import("./views/ChatView.vue"), meta: { title: "Chat", directChat: true } },
@@ -44,12 +45,14 @@ export const router = createRouter({
 });
 
 router.beforeEach((to) => {
+  if (session.callback === "error" && to.path !== "/login") return "/login";
   if (session.user && session.callback === "recovery" && to.path !== "/reset-password") return "/reset-password";
   const signedIn = !!session.user;
+  if (signedIn && !session.adultTermsAccepted && (to.meta.auth || to.path === "/") && to.path !== "/reset-password") return "/login";
   if (to.meta.admin && !session.profile?.isAdmin) return "/app/discover";
-  if (session.profile?.suspended && to.path.startsWith("/app/") && to.path !== "/app/profile") return "/app/profile";
+  if (session.profile?.suspended && to.path.startsWith("/app/") && !["/app/profile", "/app/plus"].includes(to.path)) return "/app/profile";
   if (to.meta.auth && !signedIn) return { path: "/login", query: { next: to.fullPath } };
-  if (to.meta.guest && signedIn && !session.profileError) return session.profile ? "/app/discover" : "/onboarding";
+  if (to.meta.guest && signedIn && session.adultTermsAccepted && !session.profileError) return session.profile ? "/app/discover" : "/onboarding";
   if (to.matched.some((r) => r.meta.profile) && session.profileError) return { path: "/login", query: { next: to.fullPath } };
   if (to.matched.some((r) => r.meta.profile) && !session.profile) return "/onboarding";
   if (to.path === "/onboarding" && session.profile) return "/app/discover";

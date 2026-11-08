@@ -1,3 +1,4 @@
+import {COUNTRIES} from '../money/config.js';
 import {ageFrom, HttpError, str} from './http.ts';
 import {stringList} from './profile-data.js';
 import {MODES,DAYS,TIMES,INTENSITIES,EXPERIENCE} from '../../../../src/foundation/compatibility.js';
@@ -35,5 +36,6 @@ export function validateFoundation(b: any) {
  const modes=list('connection_modes',3,Object.keys(MODES));if(!modes.length)throw new HttpError(422,'Choose a connection mode.');
  if(!Array.isArray(b.user_sports)||b.user_sports.length<1||b.user_sports.length>8||b.user_sports.some((s:any)=>!s||typeof s.sport_id!=='string'||!EXPERIENCE.includes(s.experience_level)||!INTENSITIES.includes(s.preferred_intensity))||new Set(b.user_sports.map((s:any)=>s.sport_id)).size!==b.user_sports.length)throw new HttpError(422,'Choose one to eight sports with experience and intensity.');
  if(!['',...INTENSITIES].includes(b.preferred_intensity))throw new HttpError(422,'Choose a valid intensity.');
- return {name,birthdate,city:str(b.city,60,'City',true),country:str(b.country,80,'Country',true),bio:str(b.bio,500,'Bio'),languages:list('languages',12),preferred_days:list('preferred_days',7,DAYS),preferred_times:list('preferred_times',3,TIMES),lifestyle_interests:list('lifestyle_interests',12),connection_modes:modes,photos:list('photos',6),preferred_intensity:b.preferred_intensity,user_sports:b.user_sports};
+ const country=str(b.country,80,'Country',true),known=COUNTRIES.find(c=>c.name===country||c.code===country);
+ return {countryCode:known?.code||null,name,birthdate,city:str(b.city,60,'City',true),country:known?.name||country,bio:str(b.bio,500,'Bio'),languages:list('languages',12),preferred_days:list('preferred_days',7,DAYS),preferred_times:list('preferred_times',3,TIMES),lifestyle_interests:list('lifestyle_interests',12),connection_modes:modes,photos:list('photos',6),preferred_intensity:b.preferred_intensity,user_sports:b.user_sports};
 }

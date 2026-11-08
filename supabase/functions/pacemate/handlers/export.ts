@@ -8,7 +8,7 @@ const sections={
   profile:['profiles','id','id'],checkins:['checkins','user_id','day'],workouts:['workouts','user_id','id'],
   dailyAnswers:['daily_answers','user_id','day'],challenges:['challenge_members','user_id','month,challenge_id'],
   notificationSettings:['notification_settings','user_id','user_id'],notifications:['notifications','user_id','id'],
-  pushSubscriptions:['push_subscriptions','user_id','id'],travelPlans:['travel_plans','user_id','id'],billingCustomer:['billing_customers','user_id','user_id'],subscription:['subscriptions','user_id','user_id'],
+  pushSubscriptions:['push_subscriptions','user_id','id'],travelPlans:['travel_plans','user_id','id'],billingCustomer:['billing_customers','user_id','user_id'],subscription:['subscriptions','user_id','user_id'],billingPreferences:['billing_preferences','user_id','user_id'],payments:['payments','user_id','created_at,id'],
   swipes:['swipes','swiper_id','target_id'],messages:['messages','sender_id','id'],sessionMessages:['event_messages','sender_id','id'],
   hostedSessions:['events','host_id','id'],rsvps:['rsvps','user_id','event_id'],blocks:['blocks','blocker_id','blocked_id'],reports:['reports','reporter_id','id'],
   verification:['verification_requests','user_id','created_at'],attachments:['chat_attachments','user_id','id'],

@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {parse,compileScript} from '@vue/compiler-sfc';
+import {rolldown} from 'rolldown';
+const fixture=globalThis.__discoverLoading={calls:[],timers:[],dispose:[],session:{user:{id:'viewer'},profile:{currentCity:'Lagos'}}};
+const {descriptor}=parse(readFileSync('src/views/Discover.vue','utf8'));
+const script=compileScript(descriptor,{id:'discover-loading-fixture'}).content;
+const bundle=await rolldown({input:'discover-fixture',plugins:[{name:'offline-discover',resolveId(id){
+ if(id==='discover-fixture')return '\0discover';
+ if(['vue','vue-router','../api.js','../auth.js','../location.js','../money.js','../options.js'].includes(id)||id.endsWith('.vue'))return '\0fixture:'+id;
+},load(id){
+ if(id==='\0discover')return script;
+ if(id==='\0fixture:vue')return 'export const ref=value=>({value});export const onMounted=()=>{};export const onBeforeUnmount=fn=>globalThis.__discoverLoading.dispose.push(fn);export const watch=()=>{};';
+ if(id==='\0fixture:vue-router')return 'export const useRouter=()=>({push(){}});';
+ if(id==='\0fixture:../api.js')return 'export const formatEventTime=()=>({});export const api=(path,options)=>{const f=globalThis.__discoverLoading;f.calls.push({path,options});return path.startsWith("/api/events")?Promise.resolve({events:[]}):f.respond(path,options);};';
+ if(id==='\0fixture:../auth.js')return 'export const session=globalThis.__discoverLoading.session;';
+ if(id==='\0fixture:../location.js')return 'export const requestLocation=async()=>({});';
+ if(id==='\0fixture:../money.js')return 'export const COUNTRIES=[];';
+ if(id==='\0fixture:../options.js')return 'export const CITIES=[];';
+ if(id.startsWith('\0fixture:'))return 'export default {};';
+}}]});
+const output=await bundle.generate({format:'esm',codeSplitting:false});await bundle.close();
+const {default:Discover}=await import('data:text/javascript;base64,'+Buffer.from(output.output[0].code).toString('base64'));
+const timeout=globalThis.setTimeout,clear=globalThis.clearTimeout,windowBefore=globalThis.window;
+test.beforeEach(()=>{fixture.calls=[];fixture.timers=[];fixture.dispose=[];fixture.session.user={id:'viewer'};globalThis.setTimeout=(fn,ms)=>{const t={fn,ms};fixture.timers.push(t);return t;};globalThis.clearTimeout=()=>{};globalThis.window={removeEventListener(){}};});
+test.afterEach(()=>{globalThis.setTimeout=timeout;globalThis.clearTimeout=clear;globalThis.window=windowBefore;});
+const setup=()=>Discover.setup({}, {expose(){}});
+test('Anywhere requests no geography constraint and binds the request to the signed-in account',async()=>{fixture.respond=async()=>({people:[{id:'other'}]});const v=setup();await v.load();assert.equal(fixture.calls[0].path,'/api/discover?scope=anywhere');assert.equal(fixture.calls[0].options.expectedUserId,'viewer');assert.equal(v.loading.value,false);assert.deepEqual(v.people.value,[{id:'other'}]);});
+test('stalled discovery leaves loading with a clear error and can retry',async()=>{fixture.respond=()=>new Promise(()=>{});const v=setup(),pending=v.load();fixture.timers[0].fn();await pending;assert.equal(v.loading.value,false);assert.match(v.err.value,/taking too long/);fixture.respond=async()=>({people:[{id:'other'}]});await v.load();assert.equal(v.err.value,'');assert.equal(v.people.value.length,1);});
+test('a late result cannot replace a newer discovery search',async()=>{let resolve;fixture.respond=()=>new Promise(r=>resolve=r);const v=setup(),first=v.load();fixture.respond=async()=>({people:[{id:'new'}]});await v.load();resolve({people:[{id:'old'}]});await first;assert.equal(v.people.value[0].id,'new');});
+test('returning to Anywhere clears an earlier city/radius search',()=>{const v=setup();v.scope.value='city';v.city.value='Abuja';v.radius.value=25;v.draftCity.value='Abuja';v.selectScope('anywhere');assert.equal(v.city.value,'');assert.equal(v.radius.value,'');assert.equal(v.draftCity.value,'');});
+test('reset clears all optional filters and fetches Anywhere',async()=>{fixture.respond=async()=>({people:[]});const v=setup();v.country.value='NG';v.sport.value='Running';v.arriving.value=true;v.likes.value=true;v.city.value='Lagos';v.resetFilters();await Promise.resolve();assert.equal(fixture.calls[0].path,'/api/discover?scope=anywhere');});
+test('malformed responses and server failures leave an error instead of an endless loader',async()=>{for(const result of [{},null]){fixture.respond=async()=>result;const v=setup();await v.load();assert.equal(v.loading.value,false);assert.ok(v.err.value);}});
+test('unmounted or changed accounts do not apply an earlier discovery response',async()=>{let resolve;fixture.respond=()=>new Promise(r=>resolve=r);const v=setup(),pending=v.load();fixture.dispose[0]();resolve({people:[{id:'private'}]});await pending;assert.deepEqual(v.people.value,[]);});

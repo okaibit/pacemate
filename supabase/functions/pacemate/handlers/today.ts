@@ -1,5 +1,6 @@
 import { and, eq, sql, desc, inArray } from "drizzle-orm";
 import { db } from "../db/index.ts";
+import {rows} from "../server/feature-db.ts";
 import { profiles, checkins, workouts, dailyAnswers, challengeMembers, kudos } from "../db/schema.ts";
 import { handle, json, requireProfile, body, str, pick, HttpError } from "../server/http.ts";
 import { AREA_KEYS, SPORTS, CHALLENGES, questionFor } from "../server/options.ts";
@@ -58,16 +59,14 @@ async function streaks(userId: string, today: string) {
 }
 
 async function badges(meId: string) {
-  const res = await db.execute(sql`
+  const [r] = await rows(`
     SELECT
-      (SELECT count(*) FROM messages m JOIN matches x ON x.id = m.match_id
-        WHERE (x.user_a = ${meId} OR x.user_b = ${meId}) AND m.sender_id <> ${meId} AND m.read_at IS NULL)::int AS unread,
-      (SELECT count(*) FROM swipes s JOIN profiles p ON p.id = s.swiper_id
-        WHERE s.target_id = ${meId} AND s.liked AND NOT p.paused
-        AND NOT EXISTS (SELECT 1 FROM swipes s2 WHERE s2.swiper_id = ${meId} AND s2.target_id = s.swiper_id)
-        AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = ${meId} AND b.blocked_id = s.swiper_id) OR (b.blocker_id = s.swiper_id AND b.blocked_id = ${meId})))::int AS "likesYou"`);
-  const [r] = rowsOf(res);
-  return { unread: r?.unread ?? 0, likesYou: r?.likesYou ?? 0 };
+      (SELECT count(*) FROM public.messages m JOIN public.matches x ON x.id=m.match_id
+        WHERE (x.user_a=$1 OR x.user_b=$1) AND m.sender_id<>$1 AND m.read_at IS NULL)::int AS unread,
+      (SELECT count(*) FROM public.swipes s JOIN public.profiles p ON p.id=s.swiper_id
+        WHERE s.target_id=$1 AND s.swiper_id<>$1 AND s.liked AND NOT p.paused AND NOT p.suspended
+        AND NOT EXISTS (SELECT 1 FROM public.blocks b WHERE (b.blocker_id=$1 AND b.blocked_id=s.swiper_id) OR (b.blocker_id=s.swiper_id AND b.blocked_id=$1)))::int AS "likesYou"`,[meId]);
+  return {unread:r?.unread??0,likesYou:r?.likesYou??0};
 }
 
 const matchIdsOf = (meId: string) => sql`(SELECT CASE WHEN user_a = ${meId} THEN user_b ELSE user_a END FROM matches WHERE user_a = ${meId} OR user_b = ${meId})`;

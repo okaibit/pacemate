@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { login, signup, requestPasswordRecovery, oauthLogin, getSettings } from "../supabase.js";
 import { session, loadProfile } from "../auth.js";
+import { api } from "../api.js";
 import Modal from "../components/Modal.vue";
 
 const props = defineProps({ mode: String });
@@ -14,6 +15,7 @@ const busy = ref(false), err = ref(""), done = ref("");
 const providers = ref({}), providersLoading = ref(false), providersError = ref("");
 const titles = { login: "Back to your people.", signup: "Your story starts here.", forgot: "Reset your password" };
 watch(()=>props.mode,()=>{err.value="";done.value="";password.value="";emailMethod.value=false;});
+const needsAcknowledgement = computed(() => !!session.user && !session.adultTermsAccepted);
 const oauth = computed(() => Object.entries(providers.value).filter(([k, on]) => on && ["google", "github"].includes(k)).map(([k]) => k));
 
 function close(){if(!busy.value)router.push("/");}
@@ -21,8 +23,24 @@ function chooseEmail(){emailMethod.value=true;err.value="";}
 
 async function retryProfile() {
   busy.value = true; err.value = "";
-  try { await loadProfile(); router.replace(session.profile ? "/app/discover" : "/onboarding"); }
+  try { await loadProfile(); router.replace(!session.adultTermsAccepted ? "/login" : session.profile ? "/app/discover" : "/onboarding"); }
   catch (e) { err.value = e.message; }
+  finally { busy.value = false; }
+}
+
+async function acceptTerms() {
+  if (busy.value) return;
+  err.value = "";
+  if (!adult.value) { err.value = "Confirm you are 18 or older and accept the terms."; return; }
+  const owner = session.user?.id;
+  busy.value = true;
+  try {
+    await api("/api/me", { method: "POST", body: { adultTermsAccepted: true }, expectedUserId: owner });
+    await loadProfile();
+    if (session.user?.id !== owner) throw new Error("Your account changed. Refresh this page.");
+    if (!session.adultTermsAccepted) throw new Error("Could not verify your acknowledgement. Please try again.");
+    await router.replace(session.profile ? "/app/discover" : "/onboarding");
+  } catch (e) { err.value = explain(e); }
   finally { busy.value = false; }
 }
 
@@ -33,7 +51,10 @@ async function loadProviders() {
   catch { providersError.value = "Could not load other sign-in options."; }
   finally { providersLoading.value = false; }
 }
-onMounted(loadProviders);
+onMounted(() => {
+  if (session.callback === "error") session.callback = null;
+  loadProviders();
+});
 
 function explain(e) {
   if (/email.*confirm|confirm.*email/i.test(e.message)) return "Confirm your email first. Check your inbox.";
@@ -42,7 +63,7 @@ function explain(e) {
 }
 async function startOAuth(provider) {
   if (busy.value || !oauth.value.includes(provider)) return;
-  err.value = "";
+  err.value = ""; session.notice = "";
   if (props.mode === "signup" && !adult.value) { err.value = "Accept the terms and confirm you are 18 or older."; return; }
   busy.value = true;
   try { await oauthLogin(provider); } catch (e) { err.value = explain(e); busy.value = false; }
@@ -52,7 +73,7 @@ async function finish(user) {
   session.user = user;
   await loadProfile();
   const next = typeof route.query.next === "string" && route.query.next.startsWith("/") ? route.query.next : "/app/discover";
-  router.replace(session.profile ? next : "/onboarding");
+  router.replace(!session.adultTermsAccepted ? "/login" : session.profile ? next : "/onboarding");
 }
 
 async function submit() {
@@ -84,13 +105,14 @@ async function submit() {
    <section class="auth-sheet">
     <button type="button" class="close" :disabled="busy" aria-label="Close" @click="close">×</button>
     <RouterLink class="brand" to="/">Pacemate</RouterLink>
-    <h1>{{ done?(mode==='signup'?'Check your inbox.':'On its way.'):mode==='forgot'?'Reset your password':emailMethod?titles[mode]:mode==='signup'?'Get started.':'Welcome back.' }}</h1>
-    <p v-if="session.notice" class="notice" role="status">{{ session.notice }}</p>
+    <h1>{{ needsAcknowledgement?'Before you continue.':done?(mode==='signup'?'Check your inbox.':'On its way.'):mode==='forgot'?'Reset your password':emailMethod?titles[mode]:mode==='signup'?'Get started.':'Welcome back.' }}</h1>
+    <p v-if="session.notice" class="notice" role="alert">{{ session.notice }}</p>
     <div v-if="session.user&&session.profileError"><p class="error" role="alert">{{ session.profileError }}</p><button type="button" class="method" :disabled="busy" @click="retryProfile">Retry loading your profile</button></div>
     <p v-if="done" class="notice" role="status">{{ done }}</p>
     <template v-else>
-     <label v-if="mode==='signup'" class="adult"><input v-model="adult" type="checkbox" :disabled="busy"><span>I am 18 or older and accept the <RouterLink to="/terms" target="_blank">terms</RouterLink> and <RouterLink to="/privacy" target="_blank">privacy policy</RouterLink>.</span></label>
-     <div v-if="!emailMethod&&mode!=='forgot'" class="methods">
+     <label v-if="needsAcknowledgement||mode==='signup'" class="adult"><input v-model="adult" type="checkbox" :disabled="busy"><span>I am 18 or older and accept the <RouterLink to="/terms" target="_blank">terms</RouterLink> and <RouterLink to="/privacy" target="_blank">privacy policy</RouterLink>.</span></label>
+     <form v-if="needsAcknowledgement" @submit.prevent="acceptTerms" :aria-busy="busy"><button class="method primary" :disabled="busy">{{ busy?'Saving…':'Accept and continue' }}</button></form>
+     <div v-else-if="!emailMethod&&mode!=='forgot'" class="methods">
       <button type="button" class="method email" :disabled="busy" @click="chooseEmail"><span aria-hidden="true">@</span>{{ mode==='signup'?'Sign up with email':'Log in with email' }}</button>
       <button type="button" class="method google" :disabled="busy||providersLoading||!oauth.includes('google')" @click="startOAuth('google')"><span aria-hidden="true">G</span>Continue with Google</button>
       <p v-if="providersLoading" class="hint" role="status">Loading sign-in options…</p>
@@ -118,10 +140,10 @@ async function submit() {
 .close{position:absolute;right:6px;top:6px;display:grid;place-items:center;min-width:44px;min-height:44px;border:0;background:none;color:var(--mute);font:400 26px var(--body);cursor:pointer}
 .brand{display:inline-block;text-decoration:none;font:700 23px var(--display);letter-spacing:-.8px;margin-bottom:22px}
 .auth-sheet h1{font:600 32px/1.15 var(--display);letter-spacing:-.03em;margin:0 0 24px}
-.methods{display:grid;gap:12px}.method{display:flex;align-items:center;justify-content:center;position:relative;gap:12px;width:100%;min-height:48px;padding:12px 34px;border:1px solid var(--line);border-radius:0;background:var(--bg);color:var(--ink);font:600 14px var(--body);cursor:pointer;text-decoration:none}
+.methods{display:grid;gap:12px}.method{display:flex;align-items:center;justify-content:center;position:relative;gap:12px;width:100%;min-height:48px;padding:12px 34px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:600 14px var(--body);cursor:pointer;text-decoration:none}
 .method>span{position:absolute;left:14px;font-size:18px}.google,.primary{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 button:disabled{opacity:.5;cursor:not-allowed}.adult{display:flex;text-align:left;align-items:flex-start;gap:10px;font-size:12px;line-height:1.6;color:var(--mute);margin:0 0 24px}.adult input{flex:none;width:18px;height:18px;margin-top:2px;accent-color:var(--green)}.adult a{text-underline-offset:3px}
-.field{text-align:left;margin-bottom:18px}.field>span{font-size:12px}.field input{min-height:48px;font-size:16px;border-radius:0;background:var(--bg);color:var(--ink)}
+.field{text-align:left;margin-bottom:18px}.field>span{font-size:12px}.field input{min-height:48px;font-size:16px;border-radius:12px;background:var(--bg);color:var(--ink)}
 .hint,.notice{font-size:12px;line-height:1.65;color:var(--mute);margin:0}.notice{margin:0 0 20px}.error{font-size:13px;line-height:1.6;color:var(--danger);margin:16px 0}
 .text-button{min-height:44px;border:0;padding:10px 4px;background:none;color:var(--ink);font:500 12px var(--body);text-decoration:underline;cursor:pointer;text-underline-offset:3px}
 .help-link{display:inline-block;min-height:44px;padding:14px 4px;font-size:12px;text-underline-offset:3px}.switch-mode{font-size:12px;color:var(--mute);margin:16px 0 0;line-height:1.7}.switch-mode a{color:var(--ink);text-underline-offset:3px}

@@ -17,6 +17,8 @@ export const profiles = pgTable("profiles", {
   level: text().notNull().default(""),
   routine: text().notNull().default(""),
   workStyle: text("work_style").notNull().default(""),
+  countryCode: text("country_code"),
+  country: text().notNull().default(""),
   homeCity: text("home_city").notNull(),
   currentCity: text("current_city").notNull(),
   // "Arriving soon": a planned trip. Both null when none is planned; past dates are ignored everywhere.

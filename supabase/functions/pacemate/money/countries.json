@@ -1,0 +1,850 @@
+[
+  {
+    "code": "DZ",
+    "name": "Algeria",
+    "region": "Africa",
+    "currency": "DZD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "AO",
+    "name": "Angola",
+    "region": "Africa",
+    "currency": "AOA",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "BJ",
+    "name": "Benin",
+    "region": "Africa",
+    "currency": "XOF",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "BW",
+    "name": "Botswana",
+    "region": "Africa",
+    "currency": "BWP",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "CM",
+    "name": "Cameroon",
+    "region": "Africa",
+    "currency": "XAF",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "CI",
+    "name": "Côte d’Ivoire",
+    "region": "Africa",
+    "currency": "XOF",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "CD",
+    "name": "Democratic Republic of the Congo",
+    "region": "Africa",
+    "currency": "CDF",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "EG",
+    "name": "Egypt",
+    "region": "Africa",
+    "currency": "EGP",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "ET",
+    "name": "Ethiopia",
+    "region": "Africa",
+    "currency": "ETB",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "GH",
+    "name": "Ghana",
+    "region": "Africa",
+    "currency": "GHS",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "KE",
+    "name": "Kenya",
+    "region": "Africa",
+    "currency": "KES",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "LR",
+    "name": "Liberia",
+    "region": "Africa",
+    "currency": "LRD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "MG",
+    "name": "Madagascar",
+    "region": "Africa",
+    "currency": "MGA",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "MU",
+    "name": "Mauritius",
+    "region": "Africa",
+    "currency": "MUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "MA",
+    "name": "Morocco",
+    "region": "Africa",
+    "currency": "MAD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "MZ",
+    "name": "Mozambique",
+    "region": "Africa",
+    "currency": "MZN",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "NA",
+    "name": "Namibia",
+    "region": "Africa",
+    "currency": "NAD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "NG",
+    "name": "Nigeria",
+    "region": "Africa",
+    "currency": "NGN",
+    "locale": "en-NG",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "RW",
+    "name": "Rwanda",
+    "region": "Africa",
+    "currency": "RWF",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "SN",
+    "name": "Senegal",
+    "region": "Africa",
+    "currency": "XOF",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "SL",
+    "name": "Sierra Leone",
+    "region": "Africa",
+    "currency": "SLE",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "ZA",
+    "name": "South Africa",
+    "region": "Africa",
+    "currency": "ZAR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "TZ",
+    "name": "Tanzania",
+    "region": "Africa",
+    "currency": "TZS",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "TG",
+    "name": "Togo",
+    "region": "Africa",
+    "currency": "XOF",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "TN",
+    "name": "Tunisia",
+    "region": "Africa",
+    "currency": "TND",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "UG",
+    "name": "Uganda",
+    "region": "Africa",
+    "currency": "UGX",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "ZM",
+    "name": "Zambia",
+    "region": "Africa",
+    "currency": "ZMW",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "ZW",
+    "name": "Zimbabwe",
+    "region": "Africa",
+    "currency": "ZWG",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "AT",
+    "name": "Austria",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "BE",
+    "name": "Belgium",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "BG",
+    "name": "Bulgaria",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "HR",
+    "name": "Croatia",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "CZ",
+    "name": "Czechia",
+    "region": "Europe",
+    "currency": "CZK",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "DK",
+    "name": "Denmark",
+    "region": "Europe",
+    "currency": "DKK",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "EE",
+    "name": "Estonia",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "FI",
+    "name": "Finland",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "FR",
+    "name": "France",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "fr-FR",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "GE",
+    "name": "Georgia",
+    "region": "Europe",
+    "currency": "GEL",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "DE",
+    "name": "Germany",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "de-DE",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "GR",
+    "name": "Greece",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "HU",
+    "name": "Hungary",
+    "region": "Europe",
+    "currency": "HUF",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "IS",
+    "name": "Iceland",
+    "region": "Europe",
+    "currency": "ISK",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "IE",
+    "name": "Ireland",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "IT",
+    "name": "Italy",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "LV",
+    "name": "Latvia",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "LT",
+    "name": "Lithuania",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "NL",
+    "name": "Netherlands",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "NO",
+    "name": "Norway",
+    "region": "Europe",
+    "currency": "NOK",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "PL",
+    "name": "Poland",
+    "region": "Europe",
+    "currency": "PLN",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "PT",
+    "name": "Portugal",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "pt-PT",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "RO",
+    "name": "Romania",
+    "region": "Europe",
+    "currency": "RON",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "RS",
+    "name": "Serbia",
+    "region": "Europe",
+    "currency": "RSD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "ES",
+    "name": "Spain",
+    "region": "Europe",
+    "currency": "EUR",
+    "locale": "es-ES",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "SE",
+    "name": "Sweden",
+    "region": "Europe",
+    "currency": "SEK",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "CH",
+    "name": "Switzerland",
+    "region": "Europe",
+    "currency": "CHF",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "TR",
+    "name": "Türkiye",
+    "region": "Europe",
+    "currency": "TRY",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "UA",
+    "name": "Ukraine",
+    "region": "Europe",
+    "currency": "UAH",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "GB",
+    "name": "United Kingdom",
+    "region": "Europe",
+    "currency": "GBP",
+    "locale": "en-GB",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "BH",
+    "name": "Bahrain",
+    "region": "Middle East",
+    "currency": "BHD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "IL",
+    "name": "Israel",
+    "region": "Middle East",
+    "currency": "ILS",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "JO",
+    "name": "Jordan",
+    "region": "Middle East",
+    "currency": "JOD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "KW",
+    "name": "Kuwait",
+    "region": "Middle East",
+    "currency": "KWD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "LB",
+    "name": "Lebanon",
+    "region": "Middle East",
+    "currency": "LBP",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "OM",
+    "name": "Oman",
+    "region": "Middle East",
+    "currency": "OMR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "QA",
+    "name": "Qatar",
+    "region": "Middle East",
+    "currency": "QAR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "SA",
+    "name": "Saudi Arabia",
+    "region": "Middle East",
+    "currency": "SAR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "AE",
+    "name": "United Arab Emirates",
+    "region": "Middle East",
+    "currency": "AED",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "BD",
+    "name": "Bangladesh",
+    "region": "Asia",
+    "currency": "BDT",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "CN",
+    "name": "China",
+    "region": "Asia",
+    "currency": "CNY",
+    "locale": "zh-CN",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "HK",
+    "name": "Hong Kong",
+    "region": "Asia",
+    "currency": "HKD",
+    "locale": "zh-HK",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "IN",
+    "name": "India",
+    "region": "Asia",
+    "currency": "INR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "ID",
+    "name": "Indonesia",
+    "region": "Asia",
+    "currency": "IDR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "JP",
+    "name": "Japan",
+    "region": "Asia",
+    "currency": "JPY",
+    "locale": "ja-JP",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "KZ",
+    "name": "Kazakhstan",
+    "region": "Asia",
+    "currency": "KZT",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "MY",
+    "name": "Malaysia",
+    "region": "Asia",
+    "currency": "MYR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "NP",
+    "name": "Nepal",
+    "region": "Asia",
+    "currency": "NPR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "PK",
+    "name": "Pakistan",
+    "region": "Asia",
+    "currency": "PKR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "PH",
+    "name": "Philippines",
+    "region": "Asia",
+    "currency": "PHP",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "SG",
+    "name": "Singapore",
+    "region": "Asia",
+    "currency": "SGD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "KR",
+    "name": "South Korea",
+    "region": "Asia",
+    "currency": "KRW",
+    "locale": "ko-KR",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "LK",
+    "name": "Sri Lanka",
+    "region": "Asia",
+    "currency": "LKR",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "TW",
+    "name": "Taiwan",
+    "region": "Asia",
+    "currency": "TWD",
+    "locale": "zh-TW",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "TH",
+    "name": "Thailand",
+    "region": "Asia",
+    "currency": "THB",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "UZ",
+    "name": "Uzbekistan",
+    "region": "Asia",
+    "currency": "UZS",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "VN",
+    "name": "Vietnam",
+    "region": "Asia",
+    "currency": "VND",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "CA",
+    "name": "Canada",
+    "region": "North America",
+    "currency": "CAD",
+    "locale": "en-CA",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "MX",
+    "name": "Mexico",
+    "region": "North America",
+    "currency": "MXN",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "US",
+    "name": "United States",
+    "region": "North America",
+    "currency": "USD",
+    "locale": "en-US",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "AR",
+    "name": "Argentina",
+    "region": "Latin America & Caribbean",
+    "currency": "ARS",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "BB",
+    "name": "Barbados",
+    "region": "Latin America & Caribbean",
+    "currency": "BBD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "BR",
+    "name": "Brazil",
+    "region": "Latin America & Caribbean",
+    "currency": "BRL",
+    "locale": "pt-BR",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "CL",
+    "name": "Chile",
+    "region": "Latin America & Caribbean",
+    "currency": "CLP",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "CO",
+    "name": "Colombia",
+    "region": "Latin America & Caribbean",
+    "currency": "COP",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "CR",
+    "name": "Costa Rica",
+    "region": "Latin America & Caribbean",
+    "currency": "CRC",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "CU",
+    "name": "Cuba",
+    "region": "Latin America & Caribbean",
+    "currency": "CUP",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "DO",
+    "name": "Dominican Republic",
+    "region": "Latin America & Caribbean",
+    "currency": "DOP",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "EC",
+    "name": "Ecuador",
+    "region": "Latin America & Caribbean",
+    "currency": "USD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "JM",
+    "name": "Jamaica",
+    "region": "Latin America & Caribbean",
+    "currency": "JMD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "PA",
+    "name": "Panama",
+    "region": "Latin America & Caribbean",
+    "currency": "PAB",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "PE",
+    "name": "Peru",
+    "region": "Latin America & Caribbean",
+    "currency": "PEN",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "PR",
+    "name": "Puerto Rico",
+    "region": "Latin America & Caribbean",
+    "currency": "USD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "TT",
+    "name": "Trinidad and Tobago",
+    "region": "Latin America & Caribbean",
+    "currency": "TTD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "UY",
+    "name": "Uruguay",
+    "region": "Latin America & Caribbean",
+    "currency": "UYU",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "AU",
+    "name": "Australia",
+    "region": "Oceania",
+    "currency": "AUD",
+    "locale": "en-AU",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "FJ",
+    "name": "Fiji",
+    "region": "Oceania",
+    "currency": "FJD",
+    "locale": "en",
+    "paymentAvailability": "unconfigured"
+  },
+  {
+    "code": "NZ",
+    "name": "New Zealand",
+    "region": "Oceania",
+    "currency": "NZD",
+    "locale": "en-NZ",
+    "paymentAvailability": "unconfigured"
+  }
+]

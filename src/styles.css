@@ -10,7 +10,7 @@ img{max-width:100%}
 button,input,select,textarea{font:inherit;color:inherit}
 .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
 .narrow{max-width:560px;margin:0 auto;padding:0 16px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--green);color:var(--on);border:2px solid var(--green);border-radius:2px;padding:12px 22px;font-weight:700;cursor:pointer;text-decoration:none;line-height:1.2}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--green);color:var(--on);border:2px solid var(--green);border-radius:12px;padding:12px 22px;font-weight:700;cursor:pointer;text-decoration:none;line-height:1.2}
 .btn:hover{}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
@@ -22,17 +22,17 @@ button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:3px solid var(--coral);outline-offset:2px}
 label.field{display:block;margin-bottom:14px}
 label.field>span{display:block;font-weight:700;font-size:14px;margin-bottom:6px}
-.input,input[type=text],input[type=email],input[type=password],input[type=date],input[type=datetime-local],input[type=number],select,textarea{width:100%;padding:12px 14px;border:2px solid var(--line);border-radius:2px;background:var(--field);color:var(--ink)}
+.input,input[type=text],input[type=email],input[type=password],input[type=date],input[type=datetime-local],input[type=number],select,textarea{width:100%;padding:12px 14px;border:2px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink)}
 textarea{resize:vertical;min-height:90px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:2px;padding:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
 .mute{color:var(--mute)}
 .small{font-size:14px}
 .err{color:var(--danger);font-weight:700;margin:8px 0}
-.ok{background:var(--soft);border:1px solid var(--green);border-radius:2px;padding:10px 14px;margin:10px 0}
+.ok{background:var(--soft);border:1px solid var(--green);border-radius:12px;padding:10px 14px;margin:10px 0}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{border:2px solid var(--line);background:transparent;border-radius:2px;padding:7px 14px;font-weight:500;cursor:pointer}
+.chip{border:2px solid var(--line);background:transparent;border-radius:12px;padding:7px 14px;font-weight:500;cursor:pointer}
 .chip[aria-pressed=true],.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.tag{display:inline-block;background:var(--soft);color:var(--ink);border-radius:2px;padding:3px 10px;font-size:13px;font-weight:700}
+.tag{display:inline-block;background:var(--soft);color:var(--ink);border-radius:12px;padding:3px 10px;font-size:13px;font-weight:700}
 .tag.hot{background:var(--coral);color:#0F2A22}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .grow{flex:1}
@@ -40,17 +40,17 @@ textarea{resize:vertical;min-height:90px}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none}}
 .backdrop{position:fixed;inset:0;background:rgba(5,15,11,.6);display:grid;place-items:center;z-index:50;padding:16px}
-.modal{background:var(--card);border-radius:2px;padding:22px;max-width:440px;width:100%;max-height:90vh;overflow:auto}
+.modal{background:var(--card);border-radius:12px;padding:22px;max-width:440px;width:100%;max-height:90vh;overflow:auto}
 
 /* Shared app surfaces and form controls. */
-.shell .card{border-radius:2px;padding:24px}
+.shell .card{border-radius:12px;padding:24px}
 .shell .btn{border-width:1px;padding:12px 21px;transition:none}
 .shell .btn:hover:not(:disabled){}
 .shell .btn.sm{padding:9px 15px}.shell .chip{border-width:1px;padding:9px 16px;background:var(--card)}
 .shell .chip[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
-.shell input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]),.shell select,.shell textarea{border:1px solid var(--line);background:var(--field);border-radius:2px;padding:11px 13px;min-height:42px}
+.shell input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]),.shell select,.shell textarea{border:1px solid var(--line);background:var(--field);border-radius:12px;padding:11px 13px;min-height:42px}
 .shell select{appearance:none;padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='m1 1 5 5 5-5' stroke='%236A756A' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
-@media(max-width:480px){.shell .card{padding:18px;border-radius:2px}}
+@media(max-width:480px){.shell .card{padding:18px;border-radius:12px}}
 
 .btn{border-radius:999px}.btn:hover{filter:brightness(1.06)}.input,input[type=text],input[type=email],input[type=password],input[type=date],input[type=datetime-local],input[type=number],select,textarea{border-radius:12px}.card{border-radius:18px}.ok{border-radius:12px}.chip,.tag{border-radius:999px}.modal{border-radius:20px}.shell .card{border-radius:24px;box-shadow:0 4px 20px #243c2a03;padding:24px}.shell .btn{border-radius:999px;transition:transform .18s,background .18s,box-shadow .18s}.shell .btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 5px 14px #19382d14}.shell .chip{border-radius:999px}.shell input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]),.shell select,.shell textarea{border-radius:12px}.spinner{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;margin:40px auto}@keyframes spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}@media(max-width:480px){.shell .card{padding:18px;border-radius:20px}}
 
@@ -58,3 +58,10 @@ textarea{resize:vertical;min-height:90px}
 
 /* Tokens for the floating navigation and personal photo layouts. */
 :root{--editorial:Georgia,"Times New Roman",serif;--radius-pill:999px;--radius-photo:18px;--shadow-float:0 8px 26px color-mix(in srgb,var(--ink) 12%,transparent);--shadow-deck:0 12px 22px color-mix(in srgb,var(--ink) 18%,transparent)}
+
+.app-boot .boot-mark{width:40px;height:44px;color:var(--green)}.boot-track{width:128px;height:3px;background:var(--line);overflow:hidden;border-radius:999px}.boot-track::after{content:'';display:block;width:40%;height:100%;background:var(--coral);animation:boot-pace 2s ease-in-out infinite}
+@keyframes boot-pace{0%,100%{transform:translateX(0)}50%{transform:translateX(150%)}}
+@media(prefers-reduced-motion:reduce){.boot-track::after{animation:none;transform:translateX(75%)}}
+
+/* Shared boxed controls use the same curved edges on public and app screens. */
+input[type=search],input[type=url],input[type=tel],input[type=time],.input{border-radius:12px}

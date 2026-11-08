@@ -1,5 +1,6 @@
-import { rows, arrayParam } from "../server/feature-db.ts";
-import { deleteIdentity, removeUserPhotos, deletePhotos } from "../server/supabase.ts";
+import { COUNTRY_BY_CODE, countryCode } from "../money/config.js";
+import { rows, arrayParam, plusMember } from "../server/feature-db.ts";
+import { deleteIdentity, removeUserPhotos, deletePhotos, hasAdultTermsAcknowledgement, acknowledgeAdultTerms } from "../server/supabase.ts";
 import { eq, sql } from "drizzle-orm";
 import { db } from "../db/index.ts";
 import { profiles } from "../db/schema.ts";
@@ -17,10 +18,18 @@ export default handle(async (req) => {
   if (req.method === "GET") {
     const [p] = await db.select().from(profiles).where(eq(profiles.id, user.id));
     const isAdmin = p ? (await rows('SELECT 1 FROM public.app_admins WHERE user_id=$1',[user.id])).length > 0 : false;
-    return json({ user: { id: user.id, email: user.email }, profile: p ? {...own(p),isAdmin} : null });
+    return json({ user: { id: user.id, email: user.email }, adultTermsAccepted: hasAdultTermsAcknowledgement(user), profile: p ? {...own(p),isAdmin} : null });
+  }
+
+  if (req.method === "POST") {
+    const b = await body(req);
+    if (b.adultTermsAccepted !== true) throw new HttpError(422, "Confirm you are 18 or older and accept the terms.");
+    const acceptedAt = await acknowledgeAdultTerms(user, b.adultTermsAccepted);
+    return json({ adultTermsAccepted: true, acceptedAt });
   }
 
   if (req.method === "PUT") {
+    if (!hasAdultTermsAcknowledgement(user)) throw new HttpError(403, "Confirm you are 18 or older and accept the terms before continuing.");
     const b = await body(req);
     const [previous] = await db.select().from(profiles).where(eq(profiles.id, user.id));
     if (previous?.suspended) throw new HttpError(403,"Your account is suspended. Contact trypacemate@gmail.com.");
@@ -48,7 +57,16 @@ export default handle(async (req) => {
     const currentCity = canonCity(str(b.currentCity, 60, "Current city")) || homeCity;
     // Missing trip fields keep the saved trip; null or empty values clear it.
     const trip = parseTrip(b, currentCity);
+    const today=new Date().toISOString().slice(0,10);
+    if(trip?.nextCity&&!(previous?.nextCity&&previous?.nextArrival>=today)){
+      const [planned]=await rows('SELECT count(*)::int AS n FROM public.travel_plans WHERE user_id=$1 AND arrival>=current_date',[user.id]);
+      const limit=await plusMember(user.id)?5:1;
+      if(Number(planned?.n||0)>=limit)throw new HttpError(422,limit===1?'Free membership includes one upcoming city. Remove an existing destination before adding another.':'You can plan up to five cities.');
+    }
 
+
+    const code=b.countryCode===undefined?previous?.countryCode:countryCode(b.countryCode);
+    if(b.countryCode!==undefined&&!code)throw new HttpError(422,"Choose a supported country.");
     const values = {
       id: user.id,
       name: str(b.name, 30, "Name", true),
@@ -60,6 +78,7 @@ export default handle(async (req) => {
       level: pick(b.level, LEVELS, "level") as string,
       routine: pick(b.routine, ROUTINES, "training time") as string,
       workStyle: pick(b.workStyle, WORK, "work style") as string,
+      ...(code?{countryCode:code,country:COUNTRY_BY_CODE[code].name}:{}),
       homeCity,
       currentCity,
       ...trip,
