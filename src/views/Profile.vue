@@ -1,16 +1,21 @@
 <script setup>
 import { reactive, ref, computed } from "vue";
 import { useRouter } from "vue-router";
-import { api } from "../api.js";
+import { api, photoUrl } from "../api.js";
 import {disablePush} from '../composables/usePush.js';
 import { session, logout } from "../auth.js";
 import { GENDERS, GOALS, LEVELS, ROUTINES, WORK, SPORTS, CITIES, utcToday, tripMaxDate } from "../options.js";
 import ProfileFoundationSummary from "../components/ProfileFoundationSummary.vue";
+import Avatar from "../components/Avatar.vue";
 import PhotoManager from "../components/PhotoManager.vue";
 import Modal from "../components/Modal.vue";
 import ProfileCard from "../components/ProfileCard.vue";
 
 const router = useRouter();
+const photoSection=ref(null);
+const failedPhotos=ref(new Set());
+function openPhotos(){photoSection.value?.scrollIntoView({block:"start",behavior:"instant"});photoSection.value?.querySelector("button,input")?.focus({preventScroll:true});}
+function photoFailed(key){failedPhotos.value=new Set([...failedPhotos.value,key]);}
 const p = session.profile;
 const f = reactive({
   name: p.name, birthdate: p.birthdate, gender: p.gender, interestedIn: [...p.interestedIn], ageMin: p.ageMin, ageMax: p.ageMax,
@@ -48,11 +53,23 @@ async function deleteAccount() {
   <div>
     <div class="row" style="justify-content:space-between;margin-bottom:14px">
       <h1 class="h">Your profile</h1>
-      <div class="row"><RouterLink class="btn ghost sm" to="/app/settings">Settings</RouterLink><button class="btn ghost sm" @click="preview = true">Preview</button></div>
+      <div class="row"><RouterLink class="btn ghost sm" to="/app/likes">Likes</RouterLink><RouterLink class="btn ghost sm" to="/app/settings">Settings</RouterLink><button class="btn ghost sm" @click="preview = true">Preview</button></div>
+    </div>
+    <div class="profile-portrait">
+      <button type="button" class="photo-deck" :class="{stacked:f.photos.length>1}" aria-label="Manage your photos" @click="openPhotos">
+        <template v-if="f.photos.length">
+          <span v-for="(key,i) in f.photos.slice(0,3)" :key="key" class="deck-card" :class="'deck-card-'+i">
+            <img v-if="!failedPhotos.has(key)" :src="photoUrl(key)" :alt="i===0?'Your main profile photo':'Your profile photo '+(i+1)" @error="photoFailed(key)">
+            <Avatar v-else :person="{name:f.name}" :size="72"/>
+          </span>
+        </template>
+        <Avatar v-else :person="{name:f.name}" :size="96"/>
+      </button>
+      <h2>{{ f.name }}<em>, {{ session.profile.age }}</em></h2>
     </div>
     <ProfileFoundationSummary :key="foundationRevision" />
     <form @submit.prevent="save" class="stack">
-      <section class="card"><h2>Photos</h2><PhotoManager v-model="f.photos" @busy="photoBusy=$event" /></section>
+      <section ref="photoSection" class="card photos-section"><h2>Photos</h2><PhotoManager v-model="f.photos" @busy="photoBusy=$event" /></section>
 
       <section class="card">
         <h2>About you</h2>
@@ -134,4 +151,10 @@ async function deleteAccount() {
 .h{font-size:30px}
 h2{font-size:20px;margin-bottom:12px}
 .lbl{font-weight:700;font-size:14px;margin:16px 0 8px}
+</style>
+
+<style scoped>
+.profile-portrait{display:flex;align-items:center;gap:30px;padding:20px 12px 34px}.profile-portrait h2{font:400 30px/1.15 var(--editorial);margin:0;overflow-wrap:anywhere}.profile-portrait em{color:var(--coral)}
+.photo-deck{position:relative;display:grid;place-items:center;width:112px;height:148px;flex:none;border:0;padding:0;background:none;cursor:pointer;border-radius:var(--radius-photo)}
+.deck-card{position:absolute;inset:0;border:2px solid var(--line);border-radius:var(--radius-photo);overflow:hidden;background:var(--soft);display:grid;place-items:center}.deck-card img{width:100%;height:100%;object-fit:cover}.deck-card-0{z-index:3;box-shadow:var(--shadow-deck)}.deck-card-1{z-index:2;transform:translateX(-12px) rotate(-6deg);filter:brightness(.88)}.deck-card-2{z-index:1;transform:translateX(12px) rotate(6deg);filter:brightness(.88)}.photos-section{scroll-margin-top:100px}
 </style>

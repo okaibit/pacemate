@@ -33,14 +33,23 @@ const when = (iso) => {
 </script>
 <template>
   <div class="matches-page">
-    <header class="matches-heading"><h1 class="h">Matches<span>.</span></h1><RouterLink to="/app/discover" class="btn ghost sm">Discover </RouterLink></header>
+    <header class="matches-heading"><h1 class="h">Matches<span>.</span></h1><RouterLink v-if="list.length" to="/app/discover" class="btn ghost sm">Discover</RouterLink></header>
     <div v-if="err" class="match-error" role="alert"><p class="err">{{ err }}</p><button class="btn ghost sm" :disabled="refreshing" @click="load">{{ refreshing?'Retrying…':'Retry' }}</button></div>
-    <div v-if="loading"  class="spinner"></div>
-    <div v-else-if="!list.length&&!err" class="card">
-      <p style="margin-top:0"><b>No matches yet.</b></p>
-      <p class="mute">Find someone who moves like you.</p>
-      <RouterLink class="btn" to="/app/discover">Start discovering</RouterLink>
-    </div>
+    <p v-if="loading" role="status">Loading matches…</p>
+    <section v-else-if="!list.length&&!err" class="match-empty">
+      <svg class="connection-art" viewBox="0 0 360 210" fill="none" aria-hidden="true">
+        <path d="M0 38Q180 92 360 38" stroke="var(--mute)" stroke-width="2"/>
+        <g v-for="(angle,i) in [-7,3,7]" :key="i" :transform="`translate(${27+i*108} ${57+(i===1?10:0)}) rotate(${angle} 45 60)`">
+          <rect width="90" height="128" fill="var(--bg)" stroke="var(--line)"/>
+          <path d="M7 7h76v104H7z" :fill="i===1?'var(--soft)':'var(--ink)'"/>
+          <circle cx="45" cy="36" r="12" :fill="i===1?'var(--green)':'var(--soft)'"/>
+          <path d="m24 94 14-33 18 4 14 29M38 61l-15 9m33-5 15-17" :stroke="i===1?'var(--green)':'var(--soft)'" stroke-width="7" stroke-linecap="round"/>
+          <path d="M36 0v-9h18v9" fill="var(--coral)"/>
+        </g>
+      </svg>
+      <h2>A connection <em>ahead.</em></h2>
+      <RouterLink class="btn" to="/app/discover">Discover people</RouterLink>
+    </section>
     <template v-else-if="list.length">
     <section v-if="newMatches.length" class="new-matches"><h2>New connections<span>{{ newMatches.length }}</span></h2><div class="match-rail"><RouterLink v-for="m in newMatches" :key="m.id" :to="`/app/matches/${m.id}`" class="new-person"><span class="portrait-ring"><Avatar :person="m.other" :size="76"/></span><b>{{ m.other.name }}</b><span v-if="m.other.sports?.[0]" class="sport-name">{{ m.other.sports[0] }}</span></RouterLink></div></section>
     <h2 class="messages-title">Messages</h2>
@@ -92,3 +101,8 @@ const when = (iso) => {
 </style>
 
 <style scoped>.match-error{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:12px 0 20px}.match-error .err{font-size:13px;line-height:1.6;margin:0}.match-error button{flex:none}</style>
+
+<style scoped>
+.match-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:55vh;gap:30px;text-align:center}
+.connection-art{width:100%;max-width:420px;height:auto}.match-empty h2{font:400 clamp(30px,6vw,42px)/1.15 var(--editorial)}.match-empty em{color:var(--coral)}
+</style>

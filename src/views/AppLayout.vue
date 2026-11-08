@@ -12,13 +12,23 @@ const route = useRoute();
 const directChat = computed(() => route.meta.directChat);
 const badges = ref({ unread: 0, likesYou: 0 });
 const alerts = ref(0);
-const tabs = [
+const tabs = computed(() => windowWidth.value < 1050 ? [
+  ["/app/today", "Today", null],
+  ["/app/discover", "Discover", "likesYou"],
+  ["/app/matches", "Matches", "unread"],
+  ["/app/events", "Events", null],
+  ["/app/profile", "Profile", null],
+] : [
   ["/app/discover", "Discover", "likesYou"],
   ["/app/matches", "Matches", "unread"],
   ["/app/events", "Sessions", null],
   ["/app/today", "Today", null],
   ["/app/profile", "Profile", null],
-];
+]);
+const windowWidth = ref(typeof window === "undefined" ? 1050 : window.innerWidth);
+function resize(){windowWidth.value=window.innerWidth;}
+onMounted(()=>window.addEventListener("resize",resize));
+onBeforeUnmount(()=>window.removeEventListener("resize",resize));
 let timer;
 async function refresh() {
   if (document.visibilityState !== "visible") return;
@@ -43,7 +53,7 @@ watch(() => route.path, refresh);
           <template v-if="label==='Today'"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></template>
           <template v-else-if="label==='Discover'"><circle cx="12" cy="12" r="9"/><path d="m16.5 7.5-3 6-6 3 3-6Z"/></template>
           <template v-else-if="label==='Matches'"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-2 2V11.5A8.5 8.5 0 0 1 10.5 3h2A8.5 8.5 0 0 1 21 11.5Z"/><path d="M7 11h10m-10 4h6"/></template>
-          <template v-else-if="label==='Sessions'"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M7 3v4m10-4v4M3 11h18m-13 5h2m4 0h2"/></template>
+          <template v-else-if="label==='Sessions'||label==='Events'"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M7 3v4m10-4v4M3 11h18m-13 5h2m4 0h2"/></template>
           <template v-else><circle cx="12" cy="8" r="4"/><path d="M4 22v-2a8 8 0 0 1 16 0v2"/></template>
         </svg><span>{{ label }}</span>
         <span v-if="badge && badges[badge]" class="dot" :aria-label="badges[badge] + ' new'">{{ badges[badge] > 99 ? "99+" : badges[badge] }}</span>
@@ -95,3 +105,13 @@ watch(() => route.path, refresh);
 </style>
 
 <style scoped>.shell{background-image:none}.body{min-width:0}@media(max-width:700px){.inner{padding-left:16px;padding-right:16px}.hdr .row{gap:14px}.logo{font-size:25px}.body{padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))}.tab{min-height:57px;min-width:0}.tab>span:not(.dot){font-size:11px}}</style>
+
+<style scoped>
+@media(max-width:1049px){
+ .tabs{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));border:1px solid var(--line);border-radius:var(--radius-pill);padding:6px;gap:2px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(10px);box-shadow:var(--shadow-float);max-width:600px;margin:0 auto}
+ .tab{max-width:none;min-width:0;min-height:58px;padding:8px 0;gap:3px;transition:none}
+ .tab.router-link-active{border-radius:var(--radius-pill);background:var(--soft);box-shadow:none}
+ .tab>span:not(.dot){font-size:11px}
+ .body{padding-bottom:calc(116px + env(safe-area-inset-bottom,0px))}
+}
+</style>

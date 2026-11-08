@@ -17,6 +17,7 @@ const routes = [
       { path: "", redirect: "/app/discover" },
       { path: "today", component: () => import("./views/Today.vue"), meta: { title: "Today" } },
       { path: "discover", component: () => import("./views/Discover.vue"), meta: { title: "Discover" } },
+      { path: "likes", component: () => import("./views/Likes.vue"), meta: { title: "Likes" } },
       { path: "matches", component: () => import("./views/Matches.vue"), meta: { title: "Matches" } },
       { path: "matches/:id", component: () => import("./views/ChatView.vue"), meta: { title: "Chat", directChat: true } },
       { path: "events", component: () => import("./views/Events.vue"), meta: { title: "Events" } },
