@@ -466,3 +466,8 @@ test('primary destination validates date and city, uses authenticated ownership 
  assert.deepEqual(calls.find(c=>c.sql.includes('FOR UPDATE')).params,[member.id]);
  assert.equal(calls.find(c=>c.sql.startsWith('UPDATE public.profiles SET next_city=$2')).params[0],member.id);
 });
+
+test('empty Discover results do not issue an unnecessary second profile query',async()=>{
+ const response=await request('/api/discover');assert.equal(response.status,200);assert.deepEqual((await response.json()).people,[]);
+ assert.ok(!calls.some(c=>c.sql.includes('WHERE p.id=$1')));
+});

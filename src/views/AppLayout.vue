@@ -119,3 +119,7 @@ watch(() => route.path, refresh);
 <style scoped>
 @media(max-width:1049px){.tab.router-link-active{background:transparent;color:var(--ink)}.tab.router-link-active::after{content:'';position:absolute;bottom:2px;left:calc(50% - 2px);width:4px;height:4px;border-radius:50%;background:currentColor}}
 </style>
+
+<style scoped>
+.alerts{box-sizing:border-box;width:44px;height:44px;padding:10px;align-items:center;justify-content:center;flex:none}.alerts svg{flex:none;width:22px;height:22px}.alert-count{box-sizing:border-box;top:1px;right:1px;min-width:16px;height:16px;line-height:16px;padding:0 4px;font-size:9px;text-align:center;border-radius:999px}
+</style>

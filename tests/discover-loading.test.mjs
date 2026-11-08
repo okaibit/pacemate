@@ -33,3 +33,9 @@ test('returning to Anywhere clears an earlier city/radius search',()=>{const v=s
 test('reset clears all optional filters and fetches Anywhere',async()=>{fixture.respond=async()=>({people:[]});const v=setup();v.country.value='NG';v.sport.value='Running';v.arriving.value=true;v.likes.value=true;v.city.value='Lagos';v.resetFilters();await Promise.resolve();assert.equal(fixture.calls[0].path,'/api/discover?scope=anywhere');});
 test('malformed responses and server failures leave an error instead of an endless loader',async()=>{for(const result of [{},null]){fixture.respond=async()=>result;const v=setup();await v.load();assert.equal(v.loading.value,false);assert.ok(v.err.value);}});
 test('unmounted or changed accounts do not apply an earlier discovery response',async()=>{let resolve;fixture.respond=()=>new Promise(r=>resolve=r);const v=setup(),pending=v.load();fixture.dispose[0]();resolve({people:[{id:'private'}]});await pending;assert.deepEqual(v.people.value,[]);});
+
+test('service failures retain the safe request reference and leave loading',async()=>{
+ fixture.respond=async()=>{throw Object.assign(new Error('The service is temporarily unavailable. Please try again.'),{status:503,code:'CONNECTION_CLOSED',requestId:'request-fixture'});};
+ const v=setup();await v.load();assert.equal(v.loading.value,false);assert.equal(v.requestReference.value,'request-fixture');assert.match(v.err.value,/temporarily unavailable/);
+ fixture.respond=async()=>({people:[]});await v.load();assert.equal(v.requestReference.value,'');
+});

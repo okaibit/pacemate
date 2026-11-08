@@ -24,6 +24,7 @@ function loadUpcomingSession(){
 const filtersOpen=ref(false);
 const people = ref([]), loading = ref(true), err = ref(""), busy = ref(false);
 const country=ref("");
+const requestReference=ref("");
 const scope = ref("anywhere"), sport = ref(""), arriving = ref(false);
 const city = ref(""), radius = ref(""), draftCity = ref(""), draftRadius = ref(""), likes = ref(false), plus = ref(false);
 let sequence = 0, active = true;
@@ -60,7 +61,7 @@ function resetFilters(){
 async function load() {
   const token=++sequence,owner=session.user?.id;
   let deadline;
-  loading.value = true; err.value = ""; people.value=[];
+  loading.value = true; err.value = ""; requestReference.value="";people.value=[];
   try {
     const q = new URLSearchParams({ scope: scope.value, ...(country.value?{country:country.value}:{}), ...(city.value ? {city:city.value}:{}), ...(radius.value ? {radius:radius.value}:{}), ...(likes.value ? {likes:"1"}:{}), ...(sport.value ? { sport: sport.value } : {}), ...(arriving.value ? { arriving: "1" } : {}) });
     const result=await Promise.race([
@@ -71,7 +72,10 @@ async function load() {
       if(!result||!Array.isArray(result.people))throw new Error('Discover returned an unexpected response. Please try again.');
       people.value=result.people;if(!result.people.length)loadUpcomingSession();
     }
-  } catch (e) { if(active&&session.user?.id===owner&&token===sequence)err.value = e.message; }
+  } catch (e) { if(active&&session.user?.id===owner&&token===sequence){
+    err.value=e.message;requestReference.value=e.requestId||'';
+    if(e.code||e.requestId)console.warn('Discover request failed',{code:e.code,requestId:e.requestId});
+  } }
   finally { clearTimeout(deadline);if(active&&token===sequence)loading.value = false; }
 }
 watch([scope, sport, arriving, likes,country], load);
@@ -128,7 +132,7 @@ onBeforeUnmount(() => { active=false; window.removeEventListener("keydown", onKe
     <p v-if="radius" class="mute small">Distances are between city centres.</p><button class="btn block" @click="filtersOpen=false">Done</button></Modal>
     <p v-if="session.profile.paused" class="ok">Your profile is paused, so others cannot see you. <RouterLink to="/app/profile">Turn discovery back on</RouterLink>.</p>
     <p v-if="notice" class="ok" role="status">{{ notice }}</p>
-    <p v-if="err" class="err" role="alert">{{ err }}</p>
+    <p v-if="err" class="err" role="alert">{{ err }}</p><p v-if="err&&requestReference" class="request-reference">Reference: {{requestReference}}</p>
 
     <div v-if="loading && !people.length" class="discovery-loading" role="status" aria-live="polite" aria-busy="true">
       <div class="loading-brand"><svg viewBox="0 0 32 36" aria-hidden="true"><path d="M6 31C-4 19 3 2 18 2c17 0 17 22 4 29-6 4-11 4-16 0Z" fill="currentColor"/></svg><strong>Pacemate</strong><span>Finding your people…</span></div>
@@ -207,3 +211,5 @@ onBeforeUnmount(() => { active=false; window.removeEventListener("keydown", onKe
 </style>
 
 <style scoped>.discovery-hint{max-width:46ch;font-size:13px;line-height:1.7;color:var(--mute);margin:16px 0 22px}.reset-filters{display:block;min-height:44px;background:none;border:0;padding:8px 0;color:var(--green);font:600 13px var(--body);text-decoration:underline;cursor:pointer}</style>
+
+<style scoped>.request-reference{font-size:11px;color:var(--mute);overflow-wrap:anywhere;margin:8px 0 18px}</style>

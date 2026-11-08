@@ -38,6 +38,7 @@ export default handle(async(req)=>{
     AND($11::float8 IS NULL OR (c.latitude IS NOT NULL AND ${distanceSQL}<=$11::float8))
     AND($15='' OR p.country_code=$15 OR upper(p.country)=$15 OR lower(p.country)=lower($16))
     ORDER BY shared DESC,fit DESC,arriving_to_me DESC,distance_km ASC NULLS LAST,p.updated_at DESC,p.id LIMIT 30`,[me.id,me.currentCity,filterCity,sport,!!radius,arriving,likes,arrayParam(me.sports),origin?.latitude??null,origin?.longitude??null,radius,me.level,me.routine,me.goal,country||'',country?COUNTRY_BY_CODE[country].name:'',arrayParam(testPlusUsers())]);
+  if(!result.length)return json({people:[],distanceBasedOn:radius?'city-centres':null});
   const [viewer]=await rows(`SELECT p.*,${sportsSQL} AS user_sports FROM public.profiles p WHERE p.id=$1`,[me.id]);
   const viewerFoundation=foundationProfile(viewer);
   const people=result.map(p=>{
