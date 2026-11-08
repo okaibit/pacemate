@@ -16,4 +16,11 @@ test('iPhone and touch-based iPads are recognized for manual installation',()=>{
 test('failed prompts clear busy state without claiming installation',async()=>{const f=fixture(),event=promptEvent();event.prompt=async()=>{throw Error('Denied');};f.events.beforeinstallprompt(event);await assert.rejects(f.state.installApp());assert.equal(f.state.installBusy.value,false);assert.equal(f.state.appInstalled.value,false);});
 test('concurrent clicks cannot reuse an install prompt',async()=>{const f=fixture(),event=promptEvent();let finish;event.prompt=()=>new Promise(r=>finish=r);f.events.beforeinstallprompt(event);const first=f.state.installApp();assert.equal((await f.state.installApp()).outcome,'unavailable');finish();await first;});
 test('display mode changes update installed state',()=>{const f=fixture();f.modes.change({matches:true});assert.equal(f.state.appInstalled.value,true);f.modes.change({matches:false});assert.equal(f.state.appInstalled.value,false);});
-test('manifest has standalone launch and existing install icons',()=>{const manifest=JSON.parse(readFileSync('public/manifest.webmanifest','utf8'));assert.equal(manifest.display,'standalone');assert.equal(manifest.start_url,'/app/discover');assert.equal(manifest.scope,'/');for(const icon of manifest.icons){const bytes=readFileSync('public'+icon.src);assert.equal(bytes.readUInt32BE(16),parseInt(icon.sizes));assert.equal(bytes.readUInt32BE(20),parseInt(icon.sizes));}});
+test('manifest has standalone launch and existing install icons',()=>{const manifest=JSON.parse(readFileSync('public/manifest.webmanifest','utf8'));assert.equal(manifest.display,'standalone');assert.equal(manifest.start_url,'/app/discover');assert.equal(manifest.scope,'/');for(const icon of manifest.icons){const bytes=readFileSync('public'+new URL(icon.src,'https://pacemate.test').pathname);assert.equal(bytes.readUInt32BE(16),parseInt(icon.sizes));assert.equal(bytes.readUInt32BE(20),parseInt(icon.sizes));}});
+
+test('install and browser icons use the existing two-tone leaf mark',()=>{
+ const svg=readFileSync('public/app-icon.svg','utf8');assert.ok(svg.includes('#e4eccb'));assert.ok(svg.includes('#e3815e'));assert.ok(svg.includes('#102c23'));
+ assert.equal(readFileSync('public/favicon.svg','utf8'),svg);
+ const apple=readFileSync('public/icon-180.png');assert.equal(apple.readUInt32BE(16),180);assert.equal(apple.readUInt32BE(20),180);
+ assert.ok(readFileSync('index.html','utf8').includes('/icon-180.png?v=leaf-1'));
+});

@@ -11,7 +11,7 @@ try {
   rmSync(out, { force: true });
   execFileSync("zip", ["-r", "-q", "-X", out,
     "src", "public", "supabase/functions", "supabase/migrations", "supabase/config.toml", "supabase/README.md", "supabase/COMMUNITY_SETUP.md", "supabase/GLOBAL_BILLING_SETUP.md", "supabase/PLUS_PRICING_V2.md", "supabase/TEST_PLUS_SETUP.md", "GLOBAL_BILLING_REPORT.md", "supabase/schedule-notifications.sql",
-    "supabase/TESTING_REPORT.md", "supabase/review", "supabase/DIRECT_CHAT.md", "supabase/PUSH_NOTIFICATIONS.md", "scripts/setup-push-secrets.mjs", "tests", "scripts/package-source.mjs", "scripts/bundle-backend.mjs", "package.json", "package-lock.json", "index.html", "vite.config.js", "netlify.toml", "wrangler.jsonc", "AGENTS.md", ".env.example", ".gitignore",
+    "supabase/TESTING_REPORT.md", "supabase/review", "supabase/DIRECT_CHAT.md", "supabase/PUSH_NOTIFICATIONS.md", "scripts/setup-push-secrets.mjs", "tests", "scripts/package-source.mjs", "scripts/generate-app-icons.py", "scripts/bundle-backend.mjs", "package.json", "package-lock.json", "index.html", "vite.config.js", "netlify.toml", "wrangler.jsonc", "AGENTS.md", ".env.example", ".gitignore",
     "-x", "*/.env", "*/.env.*", "*.log", "*.pem", "*.key", ".DS_Store", "*/.DS_Store"], { cwd: root, stdio: "inherit" });
   console.log(`Source zip: /download/pacemate-source.zip (${Math.round(statSync(out).size / 1024)} KB)`);
 } catch (e) {
