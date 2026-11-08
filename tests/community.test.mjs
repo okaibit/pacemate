@@ -235,6 +235,7 @@ test('foundation rechecks suspension inside its save transaction',async()=>{
 test('discovery returns deterministic compatibility from profile data without private fields',async()=>{
  sqlHandler=async sql=>sql.includes('AS user_sports')?[{...foundationData,id:sql.includes('JOIN public.profiles v')?'member-b':member.id,distance_km:null}]:[];
  const result=await (await request('/api/discover')).json();
+ assert.deepEqual(result.people[0].sharedConnectionModes,['training_partner','friendship']);
  assert.equal(result.people[0].compatibility.score,100);assert.ok(result.people[0].compatibility.reasons.includes('Both enjoy running'));
  for(const key of ['birthdate','email','phone','address'])assert.ok(!Object.hasOwn(result.people[0],key));
  const again=await (await request('/api/discover')).json();assert.deepEqual(again.people[0].compatibility,result.people[0].compatibility);
@@ -284,4 +285,19 @@ test('foundation save rejects foreign and missing photo objects before writing',
   calls=[];assert.equal((await request('/api/foundation','PUT',{...foundationPayload,photos})).status,422);
   assert.ok(!calls.some(c=>c.sql.startsWith('UPDATE')));
  }
+});
+
+test('city suggestion works before onboarding and returns only a nearby city',async()=>{
+ profile=null;
+ sqlHandler=async sql=>sql.includes('feature_limits')?[{hits:1}]:sql.includes('FROM public.city_coordinates')?[{display_name:'Lagos'}]:[];
+ const response=await request('/api/location','POST',{latitude:6.52,longitude:3.38});assert.equal(response.status,200);assert.deepEqual(await response.json(),{city:'Lagos'});
+ const query=calls.find(c=>c.sql.includes('FROM public.city_coordinates'));assert.deepEqual(query.params,[6.52,3.38]);assert.ok(query.sql.includes('distance<=100'));
+ assert.ok(!calls.some(c=>c.sql.startsWith('UPDATE')||c.sql.includes('INSERT INTO public.profiles')));
+ assert.ok(fetchCalls.every(call=>call.url.endsWith('/auth/v1/user')));
+});
+test('location rejects invalid coordinates, keeps no-match as manual entry, and requires a bearer',async()=>{
+ for(const position of [{latitude:91,longitude:0},{latitude:0,longitude:-181},{latitude:'6.52',longitude:3.38},{latitude:null,longitude:0}])assert.equal((await request('/api/location','POST',position)).status,422);
+ sqlHandler=async sql=>sql.includes('feature_limits')?[{hits:1}]:[];
+ assert.deepEqual(await (await request('/api/location','POST',{latitude:0,longitude:0})).json(),{city:null});
+ assert.equal((await handler(new Request('https://function.test/pacemate/api/location',{method:'POST',body:'{}'}))).status,401);
 });

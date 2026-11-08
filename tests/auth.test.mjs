@@ -125,3 +125,11 @@ test('a stale refresh failure cannot clear a replacement session from another ta
   await assert.rejects(pending, /already used/);
   assert.equal((await client.getSession()).user.id, 'other');
 });
+
+test('OAuth refuses missing Supabase configuration before navigating',()=>{
+ for(const config of [{url:'',key:'public'},{url:'https://test.supabase.co',key:''}]){
+  let navigated=false;
+  const client=createAuthClient({...config,storage:{getItem:()=>null},location:{origin:'http://localhost:5173',assign(){navigated=true;}}});
+  assert.throws(()=>client.oauth('google'),/not configured/);assert.equal(navigated,false);
+ }
+});

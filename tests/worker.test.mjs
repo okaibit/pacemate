@@ -44,7 +44,7 @@ test('bundled worker health works without initializing the database', async () =
 
 test('anonymous private requests are rejected before database module loading', async () => {
   databaseReads = 0;
-  for (const path of ['/api/me', '/api/discover', '/api/matches', '/api/today', '/api/foundation', '/api/foundation/sports', '/api/foundation/members/member-b']) {
+  for (const path of ['/api/me', '/api/discover', '/api/matches', '/api/today', '/api/foundation', '/api/foundation/sports', '/api/location', '/api/foundation/members/member-b']) {
     const response = await handler(new Request('https://function.test/pacemate' + path));
     assert.equal(response.status, 401);
     assert.equal((await response.json()).error, 'Please log in.');

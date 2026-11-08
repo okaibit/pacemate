@@ -36,3 +36,9 @@ All new controls have text or accessible names, inherit visible focus outlines, 
 - Reviewed sizing at 375px and 430px by CSS calculation: the nav has 12px side insets, five flexible tabs and short labels; likes uses two `minmax(0,1fr)` columns with a 16px gap; the profile deck reserves 112px plus 30px for its gap. Page bottom padding reserves 116px plus the safe-area inset for the floating bar.
 - No browser automation or browser session is available here. Actual visual rendering at both widths, safe-area behavior on a device, image failures, keyboard interaction, and authenticated end-to-end states remain unverified in a browser. API checks used local mocks only.
 - Pre-existing working-tree edits, including Discover and backend changes, were left untouched and excluded from this commit.
+
+## Selected sports and routine follow-up
+
+`src/views/Profile.vue` now shows only the member's selected sports, level, training routine and work style by default. Edit reveals the existing choices; Done collapses them again. Changes still use the existing Save changes action. An empty selection offers Add sports and routine. No API behavior changed.
+
+Verification: `npm test` passed all 140 tests; `npm run build` passed using the same isolated temporary copy with the updated Profile view. `git diff --check` passed. Browser interaction remains unverified.

@@ -1,6 +1,7 @@
 import { resolveRoute, allowedOrigin } from "./routes.js";
 
 const loaders = {
+  location: () => import("./handlers/location.ts"),
   foundation: () => import("./handlers/foundation.ts"),
   chat: () => import("./handlers/chat.ts"),
   admin: () => import("./handlers/admin.ts"),

@@ -2,44 +2,61 @@
 import { ref, computed, watch } from "vue";
 import { photoUrl } from "../api.js";
 import { session } from "../auth.js";
+import { MODES } from "../foundation/compatibility.js";
 import TripBadge from "./TripBadge.vue";
 const props = defineProps({ person: { type: Object, required: true }, immersive: Boolean, portrait: Boolean });
-const i = ref(0), failed=ref(false),showDetails=ref(false);
-watch(() => props.person.id, () => { i.value=0;showDetails.value=false; });
+const i = ref(0), failed=ref(false), showDetails=ref(false);
+watch(() => props.person.id, () => { i.value=0;failed.value=false;showDetails.value=false; });
 watch(() => props.person.photos?.[i.value],()=>failed.value=false);
 const mine = computed(() => session.profile?.sports || []);
 const photo = computed(() => props.person.photos?.[i.value]);
+const initials = computed(() => (props.person.name || '').trim().split(/\s+/).slice(0,2).map(word=>word[0]||'').join('').toUpperCase());
+const modes = computed(() => (props.person.connection_modes || []).filter(mode=>Object.hasOwn(MODES,mode)));
+const sharedModes = computed(() => (props.person.sharedConnectionModes || []).filter(mode=>modes.value.includes(mode)));
+const compatibility = computed(() => {
+ const value=props.person.compatibility;
+ return value?.eligible && Number.isFinite(value.score) && value.score>=0 && value.score<=100 ? value : null;
+});
+const reasons = computed(() => (compatibility.value?.reasons || []).filter(reason=>typeof reason==='string'&&!reason.startsWith('Both open to ')).slice(0,3));
+const hasDetails = computed(() => !!(props.person.bio || props.person.prompt || props.person.level || props.person.routine || props.person.workStyle || props.person.nextCity || props.person.arrival));
 </script>
 <template>
   <article class="pc" :class="{immersive,portrait}">
-    <div class="ph">
+    <div class="ph" :class="{'without-photo':!photo||failed}">
       <img v-if="photo && !failed" :src="photoUrl(photo)" :alt="'Photo of ' + person.name" @error="failed=true">
-      <div v-else class="none" aria-hidden="true">{{ person.name.slice(0, 1) }}</div>
-      <div v-if="person.photos?.length > 1" class="dots">
-        <button v-for="(p, n) in person.photos" :key="p" :class="{ on: n === i }" @click="i = n" :aria-label="'Show photo ' + (n + 1)"></button>
+      <div v-else class="none"><span class="initials" aria-hidden="true">{{ initials }}</span><span class="photo-status">{{ failed?'Photo unavailable':'No photo added' }}</span></div>
+      <div v-if="person.photos?.length > 1" class="photo-pages" aria-label="Profile photos">
+        <button v-for="(p, n) in person.photos" :key="p" :class="{ on: n === i }" @click="i = n" :aria-pressed="n===i" :aria-label="'Show photo ' + (n + 1)"><span/></button>
       </div>
       <button v-if="i > 0" class="nav l" @click="i--" aria-label="Previous photo">‹</button>
       <button v-if="i < (person.photos?.length || 0) - 1" class="nav r" @click="i++" aria-label="Next photo">›</button>
-      <div v-if="immersive" class="photo-identity">
-        <p v-if="portrait&&person.goal" class="profile-intent">{{ person.goal }}</p>
-        <h2>{{ person.name }}<template v-if="person.age">, {{ person.age }}</template> <span v-if="person.verified" class="verified" aria-label="Photo verified">Verified</span></h2>
-        <p>{{ person.currentCity }}<template v-if="person.distanceKm != null"> · {{ person.distanceKm }} km away</template></p>
-        <div class="hero-sports"><span v-for="sport in person.sports?.slice(0,4)" :key="sport" :class="{shared:mine.includes(sport)}" :title="mine.includes(sport)?'You both enjoy '+sport:sport">{{ mine.includes(sport)?' ':'' }}{{ sport }}</span></div>
-      </div>
-      <div v-if="immersive" class="photo-actions"><slot name="actions" /></div>
     </div>
-    <button v-if="portrait" class="details-toggle" :aria-expanded="showDetails" @click="showDetails=!showDetails">{{ showDetails?'Less about':'About' }} {{ person.name }}<span aria-hidden="true">{{ showDetails?'−':'+' }}</span></button>
-    <div v-if="!portrait||showDetails" class="info">
-      <h2 v-if="!immersive">{{ person.name }}, {{ person.age }} <span v-if="person.verified" class="verified" aria-label="Photo verified" title="Profile photos reviewed against a private selfie">✓</span></h2>
-      <p v-if="!immersive" class="mute where">
-        {{ person.currentCity }}<template v-if="person.homeCity && person.homeCity !== person.currentCity"> · from {{ person.homeCity }}</template>
-      </p>
-      <TripBadge :person="person" style="margin-top:8px" />
-      <div v-if="!immersive" class="chips" style="margin:10px 0">
-        <span v-for="s in person.sports" :key="s" class="tag" :class="{ hot: mine.includes(s) }">{{ s }}</span>
+    <div v-if="immersive" class="identity-panel">
+      <header class="identity">
+        <h2>{{ person.name }}<template v-if="person.age">, {{ person.age }}</template></h2>
+        <span v-if="person.verified" class="verified">Photo verified</span>
+        <p>{{ person.currentCity || person.city }}<template v-if="person.distanceKm != null"> · {{ person.distanceKm }} km away</template></p>
+      </header>
+      <div v-if="modes.length" class="connection-modes" :aria-label="sharedModes.length?'Connection modes, shared modes highlighted':'Open to'">
+        <span v-for="mode in modes" :key="mode" :class="{shared:sharedModes.includes(mode)}">{{ MODES[mode] }}</span>
       </div>
+      <p v-else-if="person.goal" class="legacy-intent">{{ person.goal }}</p>
+      <div v-if="person.sports?.length" class="hero-sports" aria-label="Sports, shared sports highlighted"><span v-for="sport in person.sports.slice(0,4)" :key="sport" :class="{shared:mine.includes(sport)}" :title="mine.includes(sport)?'You both enjoy '+sport:sport">{{ sport }}</span></div>
+      <section v-if="compatibility" class="compatibility" aria-label="Your compatibility">
+        <p><strong>{{ compatibility.score }}<span>/100</span></strong><span>Compatibility</span></p>
+        <ul v-if="reasons.length"><li v-for="reason in reasons" :key="reason">{{ reason }}</li></ul>
+      </section>
+      <p v-else-if="person.bio" class="bio-preview">{{ person.bio }}</p>
+      <div class="profile-actions"><slot name="actions" /></div>
+      <button v-if="portrait&&hasDetails" class="details-toggle" :aria-expanded="showDetails" :aria-controls="'profile-details-'+person.id" @click="showDetails=!showDetails">{{ showDetails?'Less about':'More about' }} {{ person.name }}<span aria-hidden="true">{{ showDetails?'−':'+' }}</span></button>
+    </div>
+    <div v-if="!portrait||showDetails" :id="'profile-details-'+person.id" class="info">
+      <h2 v-if="!immersive">{{ person.name }}, {{ person.age }} <span v-if="person.verified" class="verified">Photo verified</span></h2>
+      <p v-if="!immersive" class="mute where">{{ person.currentCity || person.city }}<template v-if="person.homeCity && person.homeCity !== person.currentCity"> · from {{ person.homeCity }}</template></p>
+      <TripBadge :person="person" />
+      <div v-if="!immersive" class="chips"><span v-for="s in person.sports" :key="s" class="tag" :class="{ hot: mine.includes(s) }">{{ s }}</span></div>
       <dl class="facts">
-        <div v-if="person.goal"><dt>Looking for</dt><dd>{{ person.goal }}</dd></div>
+        <div v-if="person.goal&&!modes.length"><dt>Looking for</dt><dd>{{ person.goal }}</dd></div>
         <div v-if="person.level"><dt>Level</dt><dd>{{ person.level }}</dd></div>
         <div v-if="person.routine"><dt>Trains</dt><dd>{{ person.routine }}</dd></div>
         <div v-if="person.workStyle"><dt>Works</dt><dd>{{ person.workStyle }}</dd></div>
@@ -51,41 +68,49 @@ const photo = computed(() => props.person.photos?.[i.value]);
   </article>
 </template>
 <style scoped>
-.pc{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.ph{position:relative;aspect-ratio:4/5;background:var(--soft)}
+.pc{background:var(--bg);border:1px solid var(--line);overflow:hidden;border-radius:0;min-width:0}
+.ph{position:relative;aspect-ratio:4/5;background:var(--soft);min-width:0;overflow:hidden}
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
-.none{display:grid;place-items:center;height:100%;font:800 96px var(--display);color:var(--green)}
-.dots{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:4px}
-.dots button{flex:1;height:4px;border:0;border-radius:12px;background:var(--card);padding:0;cursor:pointer}
-.dots button.on{background:var(--card)}
-.nav{position:absolute;top:0;bottom:0;width:30%;background:none;border:0;color:#fff;font-size:34px;cursor:pointer;opacity:0}
-.nav:focus-visible,.nav:hover{opacity:.9}
-.nav.l{left:0;text-align:left;padding-left:10px}.nav.r{right:0;text-align:right;padding-right:10px}
-.info{padding:16px 18px 18px}
-h2{font-size:28px}
-.where{margin:2px 0 0}
-.facts{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin:8px 0}
-.facts dt{font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
-.facts dd{margin:0;font-weight:700}
-.bio{margin:10px 0 0;white-space:pre-line}
-.prompt{margin-top:12px;background:var(--soft);border-radius:12px;padding:10px 14px}.prompt small{color:var(--mute);font-weight:700}.prompt p{margin:2px 0 0;font-weight:500}
-.verified{display:inline-grid;place-items:center;background:var(--green);color:var(--on);border-radius:12px;width:23px;height:23px;font-size:15px;vertical-align:middle}
-</style>
-
-<style scoped>
-.immersive{border:0;border-radius:12px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.85fr);isolation:isolate}.immersive .ph{aspect-ratio:auto;height:clamp(490px,71vh,690px);min-width:0;overflow:hidden;background:#244f3b}.immersive .none{color:#e9eee1}.immersive .ph:after{content:'';position:absolute;inset:20% 0 0;background:rgba(16,44,35,.48);pointer-events:none}.immersive .nav{z-index:1;bottom:225px;width:23%}.immersive .dots{z-index:3;top:16px;left:16px;right:16px}.immersive .dots button{height:5px;min-height:12px;background-clip:content-box;padding:3px 0}
-.photo-identity{position:absolute;bottom:116px;left:28px;right:22px;color:#fff;z-index:2;pointer-events:none}.photo-identity h2{font-size:clamp(30px,3vw,42px);letter-spacing:-.035em;}.photo-identity p{margin:8px 0 16px;font-size:14px;color:#f3f5ef}.hero-sports{display:flex;gap:7px;flex-wrap:wrap}.hero-sports span{padding:6px 11px;background:#ffffff20;border:1px solid #ffffff35;border-radius:12px;font-size:12px;font-weight:600;}.hero-sports .shared{background:#e9efda;color:#244b37;border-color:transparent}.photo-actions{position:absolute;bottom:24px;left:0;right:0;z-index:3;display:flex;justify-content:center;align-items:center;gap:24px}.immersive .info{padding:34px 28px;display:flex;flex-direction:column;gap:22px;overflow-wrap:anywhere}.immersive .bio{order:-2;font-family:var(--display);font-size:25px;line-height:1.4;letter-spacing:-.025em;margin:0}.immersive .facts{gap:20px 12px;margin:0}.immersive .facts dt{font-size:10px;letter-spacing:.09em;margin-bottom:5px}.immersive .facts dd{font-size:14px;font-weight:500}.immersive .prompt{margin-top:auto;padding:22px 20px;border-radius:12px}.immersive .prompt small{font-size:11px;line-height:1.5;display:block}.immersive .prompt p{font:600 22px/1.35 var(--display);margin-top:10px}.immersive .verified{width:22px;height:22px;font-size:13px;background:#e9efda;color:#244b37}
-@media(max-width:700px){.immersive{display:block;border-radius:12px}.immersive .ph{height:clamp(450px,72svh,680px)}.immersive .info{padding:24px;gap:20px}.photo-identity{left:24px;bottom:112px}.immersive .bio{font-size:23px}.immersive .prompt{margin-top:0}}
-</style>
-
-
-<style scoped>
-.immersive{border:0;border-radius:28px;box-shadow:0 16px 56px #173a2812;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.85fr);isolation:isolate}.immersive .ph{aspect-ratio:auto;height:clamp(490px,71vh,690px);min-width:0;overflow:hidden;background:linear-gradient(140deg,#3b6d50,#152f25)}.immersive .none{color:#e9eee1}.immersive .ph:after{content:'';position:absolute;inset:20% 0 0;background:linear-gradient(transparent,#10251a15 20%,#10251ac9 80%,#10251ae6);pointer-events:none}.immersive .nav{z-index:1;bottom:225px;width:23%}.immersive .dots{z-index:3;top:16px;left:16px;right:16px}.immersive .dots button{height:5px;min-height:12px;background-clip:content-box;padding:3px 0}
-.photo-identity{position:absolute;bottom:116px;left:28px;right:22px;color:#fff;z-index:2;pointer-events:none}.photo-identity h2{font-size:clamp(30px,3vw,42px);letter-spacing:-.035em;text-shadow:0 1px 12px #0002}.photo-identity p{margin:8px 0 16px;font-size:14px;color:#f3f5ef}.hero-sports{display:flex;gap:7px;flex-wrap:wrap}.hero-sports span{padding:6px 11px;background:#ffffff20;border:1px solid #ffffff35;border-radius:999px;font-size:12px;font-weight:600;backdrop-filter:blur(12px)}.hero-sports .shared{background:#e9efda;color:#244b37;border-color:transparent}.photo-actions{position:absolute;bottom:24px;left:0;right:0;z-index:3;display:flex;justify-content:center;align-items:center;gap:24px}.immersive .info{padding:34px 28px;display:flex;flex-direction:column;gap:22px;overflow-wrap:anywhere}.immersive .bio{order:-2;font-family:var(--display);font-size:25px;line-height:1.4;letter-spacing:-.025em;margin:0}.immersive .facts{gap:20px 12px;margin:0}.immersive .facts dt{font-size:10px;letter-spacing:.09em;margin-bottom:5px}.immersive .facts dd{font-size:14px;font-weight:500}.immersive .prompt{margin-top:auto;padding:22px 20px;border-radius:18px}.immersive .prompt small{font-size:11px;line-height:1.5;display:block}.immersive .prompt p{font:600 22px/1.35 var(--display);margin-top:10px}.immersive .verified{width:22px;height:22px;font-size:13px;background:#e9efda;color:#244b37}
-@media(max-width:700px){.immersive{display:block;border-radius:24px}.immersive .ph{height:clamp(450px,72svh,680px)}.immersive .info{padding:24px;gap:20px}.photo-identity{left:24px;bottom:112px}.immersive .bio{font-size:23px}.immersive .prompt{margin-top:0}}
-</style>
-<style scoped>.pc{border-radius:22px}.verified{border-radius:50%}.immersive{border-radius:28px}.hero-sports span,.hero-sports .shared{border-radius:999px}.facts{border-radius:14px}</style>
-<style scoped>
-.portrait.immersive{display:block;width:100%;max-width:440px;margin:0 auto;border:1px solid var(--line);border-radius:6px;box-shadow:none}.portrait.immersive .ph{height:clamp(460px,67svh,650px);aspect-ratio:auto}.portrait .photo-identity{left:24px;right:24px;bottom:106px}.portrait .photo-identity h2{font-size:34px;line-height:1.1}.portrait .photo-identity>p:not(.profile-intent){font-size:12px;margin:8px 0 13px}.portrait .profile-intent{display:inline-block;margin:0 0 13px;padding:5px 9px;background:#f1efe3;color:#244f3b;font-size:11px;font-weight:600;line-height:1.4}.portrait .hero-sports span{border-radius:3px;font-size:10px;padding:5px 8px;background:#244f3b;color:#f2efe7;border-color:#a5b19b}.portrait .hero-sports .shared{background:#e2e8d5;color:#244f3b;border-color:#e2e8d5}.portrait .photo-actions{bottom:23px;gap:14px}.details-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;border-top:1px solid var(--line);background:var(--card);color:var(--ink);padding:17px 22px;text-align:left;font-size:12px;font-weight:600;cursor:pointer}.details-toggle span{font-size:19px;font-weight:400}.portrait.immersive .info{padding:24px;gap:20px}.portrait.immersive .bio{font:400 15px/1.75 var(--body);letter-spacing:0}.portrait .verified{font:600 9px var(--body);width:auto!important;height:auto!important;border-radius:3px;padding:4px 6px;vertical-align:middle}.portrait .prompt{border-radius:4px}.portrait .nav{opacity:.8}.portrait .nav:hover{opacity:1}
-@media(max-width:700px){.portrait.immersive{max-width:460px}.portrait.immersive .ph{height:clamp(440px,66svh,620px)}.portrait .photo-identity{left:22px;right:20px}.portrait .photo-identity h2{font-size:32px}}
+.none{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;color:var(--ink)}
+.initials{display:grid;place-items:center;width:76px;height:76px;border:1px solid var(--line);font:600 30px var(--display);letter-spacing:.02em}
+.photo-status{font-size:12px;color:var(--mute)}
+.photo-pages{position:absolute;top:0;left:12px;right:12px;display:flex;gap:5px;z-index:2}
+.photo-pages button{flex:1;min-width:0;min-height:44px;padding:0;border:0;background:none;cursor:pointer;display:flex;align-items:center}
+.photo-pages span{width:100%;height:3px;background:#193a2b;border:1px solid #e8eee2}
+.photo-pages .on span{background:#e8eee2}
+.nav{position:absolute;top:44px;bottom:0;width:22%;min-width:44px;border:0;background:none;color:#f3f1e8;font:400 36px var(--body);cursor:pointer}
+.nav.l{left:0;text-align:left;padding-left:12px}.nav.r{right:0;text-align:right;padding-right:12px}
+.without-photo .nav{color:var(--ink)}
+.identity-panel{padding:24px;display:flex;flex-direction:column;gap:16px;min-width:0;overflow-wrap:anywhere}
+.identity h2{font:600 clamp(26px,2.3vw,34px)/1.12 var(--display);letter-spacing:-.035em;margin:0}
+.identity p{font-size:13px;color:var(--mute);margin:9px 0 0}
+.verified{display:inline-block;font:600 10px var(--body);color:var(--green);margin-top:8px}
+.connection-modes,.hero-sports{display:flex;flex-wrap:wrap;gap:6px}
+.connection-modes span{font-size:12px;line-height:1.5;color:var(--mute)}
+.connection-modes span+span:before{content:'/';display:inline-block;margin-right:6px;color:var(--mute)}
+.connection-modes .shared{color:var(--ink);font-weight:600}
+.hero-sports span{border:1px solid var(--line);padding:5px 8px;font-size:11px;line-height:1.4;color:var(--mute)}
+.hero-sports .shared{background:var(--soft);color:var(--ink)}
+.legacy-intent{font-size:13px;color:var(--mute);margin:0}
+.compatibility{padding-top:15px;border-top:1px solid var(--line)}
+.compatibility>p{display:flex;align-items:baseline;gap:12px;margin:0 0 10px;font-size:12px;color:var(--mute)}
+.compatibility strong{font:600 29px/1 var(--display);color:var(--ink)}
+.compatibility strong span{font:400 12px var(--body);color:var(--mute);margin-left:3px}
+.compatibility ul{list-style:none;padding:0;margin:0;display:grid;gap:5px}
+.compatibility li{font-size:12px;line-height:1.5;color:var(--mute)}
+.bio-preview{font:400 16px/1.6 var(--body);margin:0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line}
+.profile-actions{display:flex;gap:10px;margin-top:auto;padding-top:6px}
+.details-toggle{display:flex;justify-content:space-between;align-items:center;gap:14px;width:100%;min-height:44px;border:0;border-top:1px solid var(--line);padding:13px 0 0;background:none;color:var(--mute);font:500 12px var(--body);text-align:left;cursor:pointer}
+.details-toggle span{font-size:20px}
+.info{padding:24px;overflow-wrap:anywhere}
+.pc .tag{border-radius:0}.info h2{font-size:28px}.where{margin:6px 0 12px}.chips{margin:12px 0}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:12px 0}
+.facts dt{font-size:11px;color:var(--mute);margin-bottom:4px}.facts dd{margin:0;font-size:13px;font-weight:600}
+.bio{margin:16px 0 0;white-space:pre-line;line-height:1.7;font-size:14px}
+.prompt{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}.prompt small{color:var(--mute);font-size:12px}.prompt p{margin:6px 0 0;font-size:15px}
+.immersive{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.immersive .ph{aspect-ratio:auto;min-height:360px}
+.immersive .info{grid-column:1/-1;border-top:1px solid var(--line)}
+@media(min-width:701px){.portrait.immersive{min-height:clamp(360px,calc(100svh - 330px),480px)}.portrait.immersive .ph img{position:absolute;inset:0}.portrait .identity-panel{gap:14px}.portrait .without-photo{min-height:300px}}
+@media(max-width:700px){.immersive{display:block}.immersive .ph{height:clamp(240px,38svh,350px);min-height:0;aspect-ratio:auto}.identity-panel{padding:20px;gap:14px}.identity h2{font-size:29px}.info{padding:20px}.profile-actions{margin-top:2px}.none{gap:14px}.initials{width:64px;height:64px;font-size:26px}.portrait .without-photo{height:180px}}
 </style>

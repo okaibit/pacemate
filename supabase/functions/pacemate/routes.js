@@ -1,4 +1,5 @@
 const routes = [
+  ["location", /^\/api\/location$/, []],
   ["foundation", /^\/api\/foundation\/(sports)$/, ["section"]],
   ["foundation", /^\/api\/foundation(?:\/members\/([^/]+))?$/, ["id"]],
   ["chat", /^\/api\/matches\/(\d+)\/chat$/, ["id"]],

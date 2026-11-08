@@ -12,8 +12,11 @@ export function createAuthClient({ url, key, storage, fetcher = fetch, location 
     if (event) emit(event, value);
     return value;
   };
-  async function request(path, { method = "POST", body, token } = {}) {
+  function assertConfigured() {
     if (!url || !key) throw new Error("Supabase is not configured. Set the VITE_SUPABASE environment variables and restart Vite.");
+  }
+  async function request(path, { method = "POST", body, token } = {}) {
+    assertConfigured();
     let response;
     try {
       response = await fetcher(`${url}/auth/v1${path}`, {
@@ -88,6 +91,6 @@ export function createAuthClient({ url, key, storage, fetcher = fetch, location 
       finally { persist(null, "SIGNED_OUT"); }
     },
     getSettings: () => request("/settings", { method: "GET" }),
-    oauth(provider) { location.assign(`${url}/auth/v1/authorize?provider=${encodeURIComponent(provider)}&redirect_to=${encodeURIComponent(location.origin + "/")}`); },
+    oauth(provider) { assertConfigured(); location.assign(`${url}/auth/v1/authorize?provider=${encodeURIComponent(provider)}&redirect_to=${encodeURIComponent(location.origin + "/")}`); },
   };
 }

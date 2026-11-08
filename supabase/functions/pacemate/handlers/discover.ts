@@ -34,6 +34,13 @@ export default handle(async(req)=>{
     AND($11::float8 IS NULL OR (c.latitude IS NOT NULL AND ${distanceSQL}<=$11::float8))
     ORDER BY shared DESC,fit DESC,arriving_to_me DESC,distance_km ASC NULLS LAST,p.updated_at DESC,p.id LIMIT 30`,[me.id,me.currentCity,filterCity,sport,!!radius,arriving,likes,arrayParam(me.sports),origin?.latitude??null,origin?.longitude??null,radius,me.level,me.routine,me.goal]);
   const [viewer]=await rows(`SELECT p.*,${sportsSQL} AS user_sports FROM public.profiles p WHERE p.id=$1`,[me.id]);
-  const people=result.map(p=>({...publicProfile(camel(p)),...foundationProfile(p),compatibility:computeCompatibility(foundationProfile(viewer),foundationProfile(p)),shared:p.shared,prompt:p.prompt,arrivingToMe:p.arriving_to_me,distanceKm:p.distance_km===null?null:Math.round(Number(p.distance_km))}));
+  const viewerFoundation=foundationProfile(viewer);
+  const people=result.map(p=>{
+    const candidate=foundationProfile(p);
+    return {...publicProfile(camel(p)),...candidate,
+      sharedConnectionModes:candidate.connection_modes.filter(mode=>viewerFoundation.connection_modes.includes(mode)),
+      compatibility:computeCompatibility(viewerFoundation,candidate),shared:p.shared,prompt:p.prompt,
+      arrivingToMe:p.arriving_to_me,distanceKm:p.distance_km===null?null:Math.round(Number(p.distance_km))};
+  });
   return json({people,distanceBasedOn:radius?'city-centres':null});
 });

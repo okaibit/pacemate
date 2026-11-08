@@ -1,215 +1,116 @@
 <script setup>
-import { reactive, ref, computed, watch } from "vue";
-import { useRouter } from "vue-router";
-import { api, photoUrl } from "../api.js";
-import { session, logout } from "../auth.js";
-import { GENDERS, GOALS, LEVELS, ROUTINES, WORK, SPORTS, CITIES, sameCity, utcToday, tripMaxDate } from "../options.js";
-import PhotoManager from "../components/PhotoManager.vue";
+import {reactive,ref,computed,watch,nextTick,onBeforeUnmount} from 'vue';
+import {useRouter} from 'vue-router';
+import {api} from '../api.js';
+import {session,logout} from '../auth.js';
+import {GENDERS,GOALS,LEVELS,ROUTINES,SPORTS,CITIES} from '../options.js';
+import {ONBOARDING_STEPS,validateOnboardingStep,onboardingPayload,onboardingPreview} from '../onboarding.js';
+import PhotoManager from '../components/PhotoManager.vue';
+import ProfileCard from '../components/ProfileCard.vue';
+import {requestLocation} from '../location.js';
 
-const router = useRouter();
-const formElement=ref(null);
-const photoFailed=ref(false);
-const MONTHS = Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleString(undefined, { month: "long" }));
-const YEARS = Array.from({ length: 82 }, (_, i) => new Date().getFullYear() - 18 - i);
-
-const f = reactive({
-  name: session.user?.name || "", m: "", d: "", y: "", gender: "", interestedIn: [], ageMin: 18, ageMax: 45,
-  goal: "", sports: [], level: "", routine: "", workStyle: "", homeCity: "", currentCity: "", nextCity: "", nextArrival: "", bio: "", photos: [],
-});
-const steps = [
-  { k: "name", t: "First, your name.", sub: "This is how you appear to other members." },
-  { k: "birth", t: "When is your birthday?", sub: "Members see your age, never your date of birth." },
-  { k: "gender", t: "How do you identify?", sub: "" },
-  { k: "into", t: "Who do you want to meet?", sub: "Pick one or more, and an age range." },
-  { k: "goal", t: "What are you here for?", sub: "You can change this any time." },
-  { k: "sports", t: "What moves you?", sub: "Pick up to 8. People who share them show up first." },
-  { k: "routine", t: "How do you train?", sub: "Optional, but it helps find people whose schedule fits yours." },
-  { k: "city", t: "Where are you based?", sub: "Home is where you live. Now is where you are this month, if different." },
-  { k: "trip", t: "Planning a trip?", sub: "Say where you're heading next and when. People there can match with you before you land." },
-  { k: "photos", t: "Put a face to your pace.", sub: "Choose photos that feel like you." },
-  { k: "bio", t: "Say a little about yourself", sub: "Your next goal race, favourite trail, or ideal first date." },
-];
-const photoBusy=ref(false);
-const step = ref(0), err = ref(""), busy = ref(false);
-const cur = computed(() => steps[step.value]);
-const previewPhoto=computed(()=>f.photos[0]?photoUrl(f.photos[0]):'');
-const previewAge=computed(()=>{if(f.m===''||!f.d||!f.y)return '';const now=new Date();let age=now.getFullYear()-Number(f.y);if(now.getMonth()<Number(f.m)||(now.getMonth()===Number(f.m)&&now.getDate()<Number(f.d)))age--;return age>=18&&age<=99?age:'';});
-watch(previewPhoto,()=>photoFailed.value=false);
-function focusQuestion(element){element.querySelector('h1')?.focus({preventScroll:true});}
-const pad = (n) => String(n).padStart(2, "0");
-const birthdate = () => `${f.y}-${pad(+f.m + 1)}-${pad(f.d)}`;
-const toggle = (arr, v, max = 99) => { const i = arr.indexOf(v); i > -1 ? arr.splice(i, 1) : arr.length < max && arr.push(v); };
-
-function check() {
-  switch (cur.value.k) {
-    case "name": return f.name.trim().length < 2 ? "Enter your name." : "";
-    case "birth": {
-      if (f.m === "" || !f.d || !f.y) return "Pick your full date of birth.";
-      const dt = new Date(Date.UTC(f.y, f.m, f.d));
-      if (dt.getUTCMonth() !== +f.m) return "That date does not exist.";
-      const t = new Date(); let a = t.getFullYear() - f.y;
-      if (t.getMonth() < +f.m || (t.getMonth() === +f.m && t.getDate() < f.d)) a--;
-      return a < 18 ? "You must be 18 or older to use Pacemate." : "";
-    }
-    case "gender": return f.gender ? "" : "Pick one.";
-    case "into": return !f.interestedIn.length ? "Pick at least one." : f.ageMin > f.ageMax ? "The minimum age is above the maximum." : "";
-    case "goal": return f.goal ? "" : "Pick one.";
-    case "sports": return f.sports.length ? "" : "Pick at least one sport.";
-    case "city": return f.homeCity.trim() ? "" : "Add your home city.";
-    case "trip": {
-      const c = f.nextCity.trim(), d = f.nextArrival;
-      if (!c && !d) return "";
-      if (!c) return "Add the city you're travelling to, or skip this step.";
-      if (!d) return "Add your arrival date, or skip this step.";
-      if (d < utcToday()) return "Your arrival date can't be in the past.";
-      if (d > tripMaxDate()) return "Your arrival date must be within the next 12 months.";
-      if (sameCity(c, f.currentCity.trim() || f.homeCity)) return "That's where you are now. Pick a different trip city.";
-      return "";
-    }
-  }
-  return "";
+const router=useRouter(),owner=session.user?.id;
+const f=reactive({name:session.user?.name||'',birthdate:'',gender:'',interestedIn:[],ageMin:18,ageMax:45,goal:'',sports:[],level:'',routine:'',homeCity:'',currentCity:'',bio:'',photos:[]});
+const step=ref(0),err=ref(''),busy=ref(false),photoBusy=ref(false),title=ref(null);
+const cur=computed(()=>ONBOARDING_STEPS[step.value]);
+const preview=computed(()=>onboardingPreview(f));
+const locationBusy=ref(false),locationNotice=ref('');
+const locked=computed(()=>busy.value||photoBusy.value||locationBusy.value);
+const latestBirthdate=new Date();latestBirthdate.setUTCFullYear(latestBirthdate.getUTCFullYear()-18);
+const maxBirthdate=latestBirthdate.toISOString().slice(0,10);
+let active=true;
+onBeforeUnmount(()=>active=false);
+watch(step,async()=>{await nextTick();title.value?.focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});});
+function toggle(values,value,max=99){if(locked.value)return;const index=values.indexOf(value);if(index>=0)values.splice(index,1);else if(values.length<max)values.push(value);}
+function back(){if(locked.value||step.value===0)return;err.value='';step.value--;}
+async function next(){
+ if(locked.value)return;
+ if(!active||session.user?.id!==owner){err.value='Your account changed. Refresh this page.';return;}
+ err.value=validateOnboardingStep(cur.value.key,f);
+ if(err.value)return;
+ if(cur.value.key!=='review'){step.value++;return;}
+ // Recheck all fields before the only save, including values edited via Back.
+ const invalid=ONBOARDING_STEPS.findIndex(item=>validateOnboardingStep(item.key,f));
+ if(invalid>=0){step.value=invalid;err.value=validateOnboardingStep(ONBOARDING_STEPS[invalid].key,f);return;}
+ busy.value=true;
+ try{
+  const {profile}=await api('/api/me',{method:'PUT',body:onboardingPayload(f),expectedUserId:owner});
+  if(!active||session.user?.id!==owner)return;
+  session.profile=profile;session.profileError='';
+  await router.replace('/app/discover');
+ }catch(error){if(active&&session.user?.id===owner)err.value=error.message;}
+ finally{if(active)busy.value=false;}
 }
-
-async function next() {
-  if(photoBusy.value)return;
-  err.value = check();
-  if (err.value) return;
-  if (step.value < steps.length - 1) { step.value++; return; }
-  busy.value = true;
-  try {
-    const { m, d, y, ...rest } = f;
-    const { profile } = await api("/api/me", { method: "PUT", body: { ...rest, birthdate: birthdate() } });
-    session.profile = profile;
-    router.replace("/app/discover");
-  } catch (e) { err.value = e.message; }
-  finally { busy.value = false; }
+async function useLocation(){
+ if(locked.value)return;
+ locationBusy.value=true;locationNotice.value='';
+ const beforeHome=f.homeCity,beforeCurrent=f.currentCity;
+ try{
+  const position=await requestLocation();
+  if(!active||session.user?.id!==owner)return;
+  const {city}=await api('/api/location',{method:'POST',body:position,expectedUserId:owner});
+  if(!active||session.user?.id!==owner||f.homeCity!==beforeHome||f.currentCity!==beforeCurrent)return;
+  if(city){f.currentCity=city;if(!f.homeCity.trim())f.homeCity=city;locationNotice.value=`Suggested city: ${city}. Check it before continuing.`;}
+  else locationNotice.value='No nearby city was found. Enter your city below.';
+ }catch(error){if(active&&session.user?.id===owner)locationNotice.value=error.status?'City suggestions are unavailable. Enter your city instead.':error.message;}
+ finally{if(active)locationBusy.value=false;}
 }
-function skipTrip() { f.nextCity = ""; f.nextArrival = ""; err.value = ""; step.value++; }
-async function signOut() { try { await logout(); router.replace("/"); } catch(e) { err.value=e.message; } }
+async function signOut(){if(locked.value)return;try{await logout();await router.replace('/');}catch(error){err.value=error.message;}}
 </script>
-
 <template>
-  <main class="ob">
-    <header class="ob-brand"><RouterLink to="/"><i aria-hidden="true"></i>Pacemate</RouterLink><button class="lnk" @click="signOut">Log out</button></header>
-    <div class="ob-layout">
-    <aside class="profile-story" aria-label="Your profile preview"><div class="preview-card"><img v-if="previewPhoto&&!photoFailed" :src="previewPhoto" alt="Your profile photo" @error="photoFailed=true"><div v-else class="preview-art" aria-hidden="true"><span class="initial">{{ f.name.trim().slice(0,1).toUpperCase() || 'p' }}</span></div><div class="preview-content"><p v-if="f.goal" class="preview-goal">{{ f.goal }}</p><h2>{{ f.name.trim() || 'Your next chapter' }}<template v-if="previewAge">, {{ previewAge }}</template></h2><p v-if="f.currentCity||f.homeCity" class="preview-city">{{ f.currentCity || f.homeCity }}<template v-if="f.nextCity"> ·  {{ f.nextCity }}</template></p><div v-if="f.sports.length||f.routine" class="preview-tags"><span v-for="s in f.sports" :key="s">{{ s }}</span><span v-if="f.routine">{{ f.routine }}</span></div><p v-if="f.bio" class="preview-bio">{{ f.bio }}</p></div></div><p class="preview-caption">Your profile, coming to life.</p></aside>
-    <div class="form-pane">
-      <div class="top">
-        <button v-if="step > 0" class="lnk" @click="step--; err = ''">← Back</button><span v-else></span>
-        <span class="step-count">{{ String(step+1).padStart(2,'0') }} <span>/ {{ steps.length }}</span></span>
-      </div>
-      <div class="bar" role="progressbar" :aria-valuenow="step + 1" aria-valuemin="1" :aria-valuemax="steps.length"><i :style="{ width: ((step + 1) / steps.length) * 100 + '%' }"></i></div>
-      <form ref="formElement" @submit.prevent="next" :aria-busy="busy">
-        <Transition name="question" mode="out-in" @after-enter="focusQuestion"><div :key="cur.k" class="question-heading"><h1 tabindex="-1">{{ cur.t }}</h1><p v-if="cur.sub" class="sub">{{ cur.sub }}</p></div></Transition>
-
-        <input v-if="cur.k === 'name'" type="text" v-model="f.name" maxlength="30" placeholder="First name" aria-label="First name" autocomplete="given-name">
-
-        <div v-else-if="cur.k === 'birth'" class="three">
-          <select v-model="f.m" aria-label="Month"><option value="" disabled>Month</option><option v-for="(mm, i) in MONTHS" :key="i" :value="i">{{ mm }}</option></select>
-          <select v-model="f.d" aria-label="Day"><option value="" disabled>Day</option><option v-for="n in 31" :key="n" :value="n">{{ n }}</option></select>
-          <select v-model="f.y" aria-label="Year"><option value="" disabled>Year</option><option v-for="yy in YEARS" :key="yy" :value="yy">{{ yy }}</option></select>
-        </div>
-
-        <div v-else-if="cur.k === 'gender'" class="opts">
-          <button type="button" v-for="g in GENDERS" :key="g" class="opt" :aria-pressed="f.gender === g" @click="f.gender = g">{{ g }}</button>
-        </div>
-
-        <template v-else-if="cur.k === 'into'">
-          <div class="opts">
-            <button type="button" v-for="g in GENDERS" :key="g" class="opt" :aria-pressed="f.interestedIn.includes(g)" @click="toggle(f.interestedIn, g)">{{ g }}</button>
-          </div>
-          <div class="three" style="margin-top:14px">
-            <label class="field"><span>From age</span><input type="number" min="18" max="99" v-model.number="f.ageMin"></label>
-            <label class="field"><span>To age</span><input type="number" min="18" max="99" v-model.number="f.ageMax"></label>
-          </div>
-        </template>
-
-        <div v-else-if="cur.k === 'goal'" class="opts">
-          <button type="button" v-for="g in GOALS" :key="g" class="opt" :aria-pressed="f.goal === g" @click="f.goal = g">{{ g }}</button>
-        </div>
-
-        <template v-else-if="cur.k === 'sports'">
-          <div class="chips" role="group" aria-label="Sports">
-            <button type="button" v-for="s in SPORTS" :key="s" class="chip light" :aria-pressed="f.sports.includes(s)" @click="toggle(f.sports, s, 8)">{{ s }}</button>
-          </div>
-          <p class="sub" style="margin-top:20px">Your level</p>
-          <div class="chips"><button type="button" v-for="l in LEVELS" :key="l" class="chip light" :aria-pressed="f.level === l" @click="f.level = f.level === l ? '' : l">{{ l }}</button></div>
-        </template>
-
-        <template v-else-if="cur.k === 'routine'">
-          <p class="sub">When you usually train</p>
-          <div class="chips"><button type="button" v-for="r in ROUTINES" :key="r" class="chip light" :aria-pressed="f.routine === r" @click="f.routine = f.routine === r ? '' : r">{{ r }}</button></div>
-          <p class="sub" style="margin-top:20px">How you work</p>
-          <div class="chips"><button type="button" v-for="w in WORK" :key="w" class="chip light" :aria-pressed="f.workStyle === w" @click="f.workStyle = f.workStyle === w ? '' : w">{{ w }}</button></div>
-        </template>
-
-        <template v-else-if="cur.k === 'city'">
-          <datalist id="cities"><option v-for="c in CITIES" :key="c" :value="c" /></datalist>
-          <label class="field"><span>Home city</span><input type="text" v-model="f.homeCity" list="cities" maxlength="60" autocomplete="address-level2"></label>
-          <label class="field"><span>Where you are now (optional)</span><input type="text" v-model="f.currentCity" list="cities" maxlength="60"></label>
-        </template>
-
-        <template v-else-if="cur.k === 'trip'">
-          <datalist id="tcities"><option v-for="c in CITIES" :key="c" :value="c" /></datalist>
-          <label class="field"><span>City you're heading to</span><input type="text" v-model="f.nextCity" list="tcities" maxlength="60" placeholder="e.g. Lisbon"></label>
-          <label class="field"><span>Arriving on</span><input type="date" v-model="f.nextArrival" :min="utcToday()" :max="tripMaxDate()"></label>
-          <p class="sub small">Members see only the city and date. You can remove it any time.</p>
-        </template>
-
-        <PhotoManager v-else-if="cur.k === 'photos'" v-model="f.photos" @busy="photoBusy=$event" class="light-box" />
-
-        <template v-else>
-          <textarea v-model="f.bio" maxlength="500" rows="5" placeholder="Training for my first ultra. Looking for someone to share long Sunday runs and longer brunches." aria-label="Bio"></textarea>
-          <p class="sub small">{{ 500 - f.bio.length }} characters left</p>
-        </template>
-
-        <p v-if="err" class="obErr" role="alert">{{ err }}</p>
-        <button class="go" :disabled="busy||photoBusy">{{ step === steps.length - 1 ? (busy ? "Saving…" : "Finish and start matching") : "Continue" }}</button>
-        <p v-if="cur.k === 'trip'" style="text-align:center"><button type="button" class="lnk" @click="skipTrip">No trip planned, skip</button></p>
-        <p v-if="['routine', 'trip', 'photos', 'bio'].includes(cur.k)" class="sub small" style="text-align:center">You can skip this and add it later.</p>
-      </form>
-    </div></div>
-  </main>
+ <main class="onboarding">
+  <header class="brand"><RouterLink to="/">Pacemate</RouterLink><button type="button" class="text-button" :disabled="locked" @click="signOut">Log out</button></header>
+  <div class="flow">
+   <nav class="step-navigation" aria-label="Profile setup"><button type="button" class="text-button" :disabled="step===0||locked" @click="back">Back</button><span>Step {{ step+1 }} of {{ ONBOARDING_STEPS.length }}</span></nav>
+   <progress :value="step+1" :max="ONBOARDING_STEPS.length" aria-label="Profile setup progress">{{ step+1 }} of {{ ONBOARDING_STEPS.length }}</progress>
+   <form @submit.prevent="next" :aria-busy="busy" novalidate>
+    <header class="question"><p v-if="cur.optional" class="optional">Optional</p><h1 ref="title" tabindex="-1">{{ cur.title }}</h1><p v-if="cur.description" class="description">{{ cur.description }}</p></header>
+    <fieldset :disabled="locked" class="answer" :aria-label="cur.title">
+     <input v-if="cur.key==='name'" v-model="f.name" type="text" maxlength="30" autocomplete="given-name" aria-label="Your name" placeholder="Your first name">
+     <input v-else-if="cur.key==='birthdate'" v-model="f.birthdate" type="date" :max="maxBirthdate" autocomplete="bday" aria-label="Date of birth">
+     <div v-else-if="cur.key==='gender'" class="options"><button v-for="gender in GENDERS" :key="gender" type="button" :aria-pressed="f.gender===gender" @click="f.gender=gender">{{ gender }}</button></div>
+     <div v-else-if="cur.key==='goal'" class="options"><button v-for="goal in GOALS" :key="goal" type="button" :aria-pressed="f.goal===goal" @click="f.goal=goal">{{ goal }}</button></div>
+     <div v-else-if="cur.key==='interestedIn'" class="options"><button v-for="gender in GENDERS" :key="gender" type="button" :aria-pressed="f.interestedIn.includes(gender)" @click="toggle(f.interestedIn,gender)">{{ gender }}</button></div>
+     <div v-else-if="cur.key==='ages'" class="age-range"><label>From<input v-model.number="f.ageMin" type="number" min="18" max="99" inputmode="numeric"></label><span aria-hidden="true">to</span><label>To<input v-model.number="f.ageMax" type="number" min="18" max="99" inputmode="numeric"></label></div>
+     <template v-else-if="cur.key==='sports'"><p class="selection-count" aria-live="polite">{{ f.sports.length }} of 8 selected</p><div class="sports" role="group" aria-label="Sports"><button v-for="sport in SPORTS" :key="sport" type="button" :aria-pressed="f.sports.includes(sport)" :disabled="f.sports.length>=8&&!f.sports.includes(sport)" @click="toggle(f.sports,sport,8)">{{ sport }}</button></div></template>
+     <div v-else-if="cur.key==='level'" class="options"><button v-for="level in LEVELS" :key="level" type="button" :aria-pressed="f.level===level" @click="f.level=f.level===level?'':level">{{ level }}</button></div>
+     <div v-else-if="cur.key==='routine'" class="options"><button v-for="routine in ROUTINES" :key="routine" type="button" :aria-pressed="f.routine===routine" @click="f.routine=f.routine===routine?'':routine">{{ routine }}</button></div>
+     <template v-else-if="cur.key==='city'"><button type="button" class="location-button" :disabled="locked" @click="useLocation">{{ locationBusy?'Finding your city…':'Use my location' }}</button><p class="location-copy">With your permission, we use your location once to suggest a city. Coordinates are not saved to your profile.</p><p v-if="locationNotice" class="location-copy" role="status">{{ locationNotice }}</p><label class="field"><span>Home city</span><input v-model="f.homeCity" type="text" list="onboarding-cities" maxlength="60" autocomplete="address-level2" placeholder="Start typing your city"></label><datalist id="onboarding-cities"><option v-for="city in CITIES" :key="city" :value="city"/></datalist><details><summary>I'm currently in another city</summary><label class="field"><span>Current city</span><input v-model="f.currentCity" type="text" list="onboarding-cities" maxlength="60"></label></details></template>
+     <PhotoManager v-else-if="cur.key==='photos'" v-model="f.photos" @busy="photoBusy=$event" class="photos"/>
+     <template v-else-if="cur.key==='bio'"><textarea v-model="f.bio" maxlength="500" rows="5" aria-label="About you" placeholder="A little about you"></textarea><p class="character-count">{{ f.bio.length }}/500</p></template>
+     <div v-else-if="cur.key==='review'" class="review"><ProfileCard :person="preview"/><button type="button" class="text-button" @click="step=0;err=''">Edit your answers</button></div>
+    </fieldset>
+    <p v-if="err" class="error" role="alert">{{ err }}</p>
+    <footer class="actions"><button type="submit" class="continue" :disabled="locked">{{ busy?'Saving your profile…':photoBusy?'Uploading photos…':cur.key==='review'?'Create profile and discover':'Continue' }}</button><button v-if="cur.optional&&!f[cur.key]?.length" type="button" class="text-button" :disabled="locked" @click="next">Add this later</button></footer>
+   </form>
+  </div>
+ </main>
 </template>
-
 <style scoped>
-.ob{min-height:100vh;background:#244f3b;color:#fff;padding:16px 0 40px}
-.top{display:flex;justify-content:space-between}
-.lnk{background:none;border:0;color:#fff;opacity:.9;cursor:pointer;font-weight:700;padding:8px 0}
-.bar{height:5px;border-radius:12px;background:var(--card);margin:12px 0 8px}
-.bar i{display:block;height:100%;border-radius:12px;background:var(--card);transition:none}
-h1{font-size:32px;margin:28px 0 6px}
-.sub{opacity:.85;margin:0 0 18px}
-.three{display:flex;gap:10px}.three>*{flex:1}
-.field span{color:#fff}
-input,select,textarea{background:var(--card)!important;color:#0F2A22!important;border-color:transparent!important}
-.opts{display:grid;gap:10px}
-.opt{text-align:left;background:var(--card);color:#0F2A22;border:2px solid transparent;border-radius:12px;padding:16px 18px;font-weight:700;cursor:pointer}
-.opt[aria-pressed=true]{border-color:var(--coral);background:#E8F6EE}
-.chip.light{background:var(--card);color:#0F2A22;border-color:#fff}
-.chip.light[aria-pressed=true]{background:var(--coral);border-color:var(--coral)}
-.light-box :deep(.mute){color:#fff;opacity:.85}
-.light-box :deep(.add label){color:#fff;border-color:rgba(255,255,255,.5)}
-.obErr{color:#FFD3C4;font-weight:700}
-.go{display:block;width:100%;margin-top:26px;background:var(--card);color:#0B7A47;border:0;border-radius:12px;padding:15px;font-weight:800;font-size:17px;cursor:pointer}
-.go:disabled{opacity:.6}
-</style>
-
-<style scoped>
-.ob{min-height:100svh;background:var(--bg);color:var(--ink);padding:0 0 50px}.ob-brand{max-width:1240px;display:flex;align-items:center;justify-content:space-between;gap:20px;margin:0 auto;padding:32px 40px}.ob-brand>a{display:flex;gap:10px;align-items:center;font:700 27px var(--display);letter-spacing:-1px;text-decoration:none}.ob-brand i{width:25px;height:25px;border-radius:12px;background:#244f3b;transform:none}.lnk{color:var(--mute);font-size:12px;font-weight:500;padding:8px 0}.ob-layout{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1fr);align-items:center;gap:90px;max-width:1060px;margin:35px auto 0;padding:0 40px}.profile-story{position:sticky;top:25px;align-self:start}.preview-card{position:relative;isolation:isolate;min-height:490px;border-radius:12px;overflow:hidden;background:#244f3b;color:#fff;display:flex;align-items:flex-end}.preview-card>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}.preview-card:after{content:'';position:absolute;inset:40% 0 0;background:rgba(16,44,35,.48);z-index:-1;pointer-events:none}.preview-art{position:absolute;inset:0;overflow:hidden;z-index:-2;background:rgba(16,44,35,.48)}.orbit{position:absolute;width:340px;height:340px;border:1px solid #ffffff1c;border-radius:12px;top:-35px;left:-30px}.orbit-two{top:28px;left:33px;width:210px;height:210px}.initial{position:absolute;top:60px;left:0;right:0;text-align:center;font:500 150px var(--display);color:#dce5bc;letter-spacing:-10px}.spark{position:absolute;right:35px;top:48px;font-size:33px;color:#efa17c}.preview-content{padding:28px;width:100%}.preview-content h2{font-size:34px;line-height:1.12;letter-spacing:-.04em;overflow-wrap:anywhere}.preview-goal{color:#dce5bc;font-size:10px;letter-spacing:.04em;margin:0 0 12px}.preview-city{font-size:13px;color:#e0e6db;margin:10px 0}.preview-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:18px}.preview-tags span{border:1px solid #ffffff30;background:#ffffff18;border-radius:12px;padding:5px 10px;font-size:10px}.preview-bio{font-size:12px;line-height:1.7;margin:18px 0 0;max-height:110px;overflow:auto;white-space:pre-wrap}.preview-caption{text-align:center;font-size:11px;color:var(--mute);margin-top:17px}.form-pane{min-width:0;align-self:center;padding:0 0 35px}.top{height:35px;align-items:center}.step-count{font-size:12px;font-weight:700}.step-count>span{font-weight:400;color:var(--mute);margin-left:5px}.bar{height:3px;background:var(--line);margin:12px 0 0}.bar i{background:var(--green)}h1{font-size:clamp(30px,3.2vw,40px);letter-spacing:-.04em;line-height:1.1;font-weight:600;margin:30px 0 12px}h1:focus{outline:none}.sub{font-size:13px;line-height:1.75;color:var(--mute);opacity:1}.question-heading{margin-bottom:26px}.field span{color:var(--ink);font-size:12px}input,select,textarea{border:1px solid var(--line)!important;background:var(--field)!important;color:var(--ink)!important;font-size:14px;min-height:51px}textarea{min-height:150px}.opt{background:var(--card);color:var(--ink);border:1px solid var(--line);padding:15px 18px;font-size:14px;font-weight:500;position:relative}.opt[aria-pressed=true]{background:var(--soft);border-color:var(--green)}.chip.light{background:var(--card);color:var(--ink);border:1px solid var(--line);font-size:12px;padding:9px 14px}.chip.light[aria-pressed=true]{background:#244f3b;color:#fff;border-color:#244f3b}.go{background:var(--green);color:var(--on);font-weight:600;min-height:52px;font-size:14px;margin-top:28px;transition:none}.go:hover:not(:disabled){}.obErr{color:var(--danger);font-size:13px}.three>*{min-width:0}.light-box :deep(.mute){color:var(--mute);opacity:1}.light-box :deep(.add label){color:var(--ink);border-color:var(--line)}.question-enter-active,.question-leave-active{transition:none}.question-enter-from{opacity:0;transform:translateY(5px)}.question-leave-to{opacity:0;transform:translateY(-5px)}
-@media(max-width:800px){.ob-brand{padding:24px}.ob-layout{gap:35px;padding:0 24px;margin-top:20px}.preview-card{min-height:420px}.preview-content{padding:22px}.preview-content h2{font-size:28px}.initial{font-size:120px;top:65px}}
-@media(max-width:600px){.ob{padding-bottom:30px}.ob-brand{padding:20px 24px}.ob-brand>a{font-size:24px}.ob-layout{display:flex;flex-direction:column;align-items:stretch;gap:24px;margin-top:10px;padding:0 24px}.profile-story{position:static}.preview-card{min-height:155px;border-radius:12px}.preview-art .initial{font-size:85px;left:auto;right:32px;top:24px;letter-spacing:-4px}.orbit-one{left:auto;right:-90px;top:-110px;width:280px;height:280px}.orbit-two{left:auto;right:-20px;top:-35px;width:140px;height:140px}.spark{font-size:20px;right:17px;top:17px}.preview-content{padding:21px;max-width:78%}.preview-content h2{font-size:24px}.preview-card>img{object-position:center 35%}.preview-card:has(>img):after{inset:0;background:rgba(16,44,35,.48)}.preview-tags{margin-top:11px;gap:5px}.preview-tags span{font-size:9px;padding:4px 7px}.preview-goal{font-size:9px;margin-bottom:7px}.preview-city{font-size:11px;margin:7px 0}.preview-bio,.preview-caption{display:none}.form-pane{padding-bottom:0}h1{font-size:30px;margin-top:22px}.question-heading{margin-bottom:22px}.top{height:25px}.bar{margin-top:10px}.three{gap:7px}.three select{font-size:12px;padding:12px 9px}.go{margin-top:24px}}
-@media(prefers-reduced-motion:reduce){*{transition:none}}
-</style>
-
-<style scoped>
-.ob{min-height:100svh;background:var(--bg);color:var(--ink);padding:0 0 50px}.ob-brand{max-width:1240px;display:flex;align-items:center;justify-content:space-between;gap:20px;margin:0 auto;padding:32px 40px}.ob-brand>a{display:flex;gap:10px;align-items:center;font:700 27px var(--display);letter-spacing:-1px;text-decoration:none}.ob-brand i{width:25px;height:25px;border-radius:50% 50% 50% 6px;background:linear-gradient(135deg,var(--green) 55%,#ee8b63 55%);transform:rotate(-20deg)}.lnk{color:var(--mute);font-size:12px;font-weight:500;padding:8px 0}.ob-layout{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1fr);align-items:center;gap:90px;max-width:1060px;margin:35px auto 0;padding:0 40px}.profile-story{position:sticky;top:25px;align-self:start}.preview-card{position:relative;isolation:isolate;min-height:490px;border-radius:28px;overflow:hidden;background:#244f3b;color:#fff;box-shadow:0 20px 50px #173a2814;display:flex;align-items:flex-end}.preview-card>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}.preview-card:after{content:'';position:absolute;inset:40% 0 0;background:linear-gradient(transparent,#10291ef0);z-index:-1;pointer-events:none}.preview-art{position:absolute;inset:0;overflow:hidden;z-index:-2;background:radial-gradient(ellipse at 20% 10%,#70976177,transparent 70%),#244f3b}.orbit{position:absolute;width:340px;height:340px;border:1px solid #ffffff1c;border-radius:50%;top:-35px;left:-30px}.orbit-two{top:28px;left:33px;width:210px;height:210px}.initial{position:absolute;top:60px;left:0;right:0;text-align:center;font:500 150px var(--display);color:#dce5bc;letter-spacing:-10px}.spark{position:absolute;right:35px;top:48px;font-size:33px;color:#efa17c}.preview-content{padding:28px;width:100%}.preview-content h2{font-size:34px;line-height:1.12;letter-spacing:-.04em;overflow-wrap:anywhere}.preview-goal{color:#dce5bc;font-size:10px;letter-spacing:.04em;margin:0 0 12px}.preview-city{font-size:13px;color:#e0e6db;margin:10px 0}.preview-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:18px}.preview-tags span{border:1px solid #ffffff30;background:#ffffff18;border-radius:999px;padding:5px 10px;font-size:10px}.preview-bio{font-size:12px;line-height:1.7;margin:18px 0 0;max-height:110px;overflow:auto;white-space:pre-wrap}.preview-caption{text-align:center;font-size:11px;color:var(--mute);margin-top:17px}.form-pane{min-width:0;align-self:center;padding:0 0 35px}.top{height:35px;align-items:center}.step-count{font-size:12px;font-weight:700}.step-count>span{font-weight:400;color:var(--mute);margin-left:5px}.bar{height:3px;background:var(--line);margin:12px 0 0}.bar i{background:var(--green)}h1{font-size:clamp(30px,3.2vw,40px);letter-spacing:-.04em;line-height:1.1;font-weight:600;margin:30px 0 12px}h1:focus{outline:none}.sub{font-size:13px;line-height:1.75;color:var(--mute);opacity:1}.question-heading{margin-bottom:26px}.field span{color:var(--ink);font-size:12px}input,select,textarea{border:1px solid var(--line)!important;background:var(--field)!important;color:var(--ink)!important;font-size:14px;min-height:51px}textarea{min-height:150px}.opt{background:var(--card);color:var(--ink);border:1px solid var(--line);padding:15px 18px;font-size:14px;font-weight:500;position:relative}.opt[aria-pressed=true]{background:var(--soft);border-color:var(--green)}.opt[aria-pressed=true]:after{content:'✓';position:absolute;right:17px;color:var(--green)}.chip.light{background:var(--card);color:var(--ink);border:1px solid var(--line);font-size:12px;padding:9px 14px}.chip.light[aria-pressed=true]{background:#244f3b;color:#fff;border-color:#244f3b}.go{background:var(--green);color:var(--on);font-weight:600;min-height:52px;font-size:14px;margin-top:28px;transition:transform .15s}.go:hover:not(:disabled){transform:translateY(-1px)}.obErr{color:var(--danger);font-size:13px}.three>*{min-width:0}.light-box :deep(.mute){color:var(--mute);opacity:1}.light-box :deep(.add label){color:var(--ink);border-color:var(--line)}.question-enter-active,.question-leave-active{transition:opacity .12s,transform .12s}.question-enter-from{opacity:0;transform:translateY(5px)}.question-leave-to{opacity:0;transform:translateY(-5px)}
-@media(max-width:800px){.ob-brand{padding:24px}.ob-layout{gap:35px;padding:0 24px;margin-top:20px}.preview-card{min-height:420px}.preview-content{padding:22px}.preview-content h2{font-size:28px}.initial{font-size:120px;top:65px}}
-@media(max-width:600px){.ob{padding-bottom:30px}.ob-brand{padding:20px 24px}.ob-brand>a{font-size:24px}.ob-layout{display:flex;flex-direction:column;align-items:stretch;gap:24px;margin-top:10px;padding:0 24px}.profile-story{position:static}.preview-card{min-height:155px;border-radius:20px}.preview-art .initial{font-size:85px;left:auto;right:32px;top:24px;letter-spacing:-4px}.orbit-one{left:auto;right:-90px;top:-110px;width:280px;height:280px}.orbit-two{left:auto;right:-20px;top:-35px;width:140px;height:140px}.spark{font-size:20px;right:17px;top:17px}.preview-content{padding:21px;max-width:78%}.preview-content h2{font-size:24px}.preview-card>img{object-position:center 35%}.preview-card:has(>img):after{inset:0;background:linear-gradient(90deg,#10291ee6,#10291e10)}.preview-tags{margin-top:11px;gap:5px}.preview-tags span{font-size:9px;padding:4px 7px}.preview-goal{font-size:9px;margin-bottom:7px}.preview-city{font-size:11px;margin:7px 0}.preview-bio,.preview-caption{display:none}.form-pane{padding-bottom:0}h1{font-size:30px;margin-top:22px}.question-heading{margin-bottom:22px}.top{height:25px}.bar{margin-top:10px}.three{gap:7px}.three select{font-size:12px;padding:12px 9px}.go{margin-top:24px}}
-@media(prefers-reduced-motion:reduce){*{transition:none!important}}
-</style>
-
-<style scoped>
-.ob,.ob-layout,.form-pane,.profile-story,.preview-card,form{min-width:0;max-width:100%}.ob{overflow-x:clip}.ob-layout{width:100%;max-width:1060px}.form-pane input,.form-pane select,.form-pane textarea{min-width:0;max-width:100%;box-sizing:border-box}.question-heading h1,.sub,.preview-city{overflow-wrap:anywhere}.preview-content{min-width:0;overflow-wrap:anywhere}.preview-tags span{max-width:100%;overflow-wrap:anywhere}.three{min-width:0}.three>*{min-width:0;width:0;flex:1 1 0}.ob-brand{gap:16px}.form-pane input[type=date]{width:100%;min-width:0;min-inline-size:0;appearance:none;-webkit-appearance:none}.form-pane input[type=date]::-webkit-date-and-time-value{text-align:left;min-width:0}.ob .go{min-height:48px}.ob-brand .lnk,.top .lnk{min-height:44px}.preview-card>img{object-position:center 25%}
-@media(max-width:600px){.ob-layout{padding-left:20px;padding-right:20px;gap:20px}.ob-brand{padding:16px 20px}.profile-story{width:100%}.preview-card{min-height:165px}.preview-content{max-width:82%;padding:20px}.question-heading .sub{font-size:13px;line-height:1.65}.form-pane{width:100%}.preview-tags{max-width:100%}.three select{padding-left:8px;padding-right:8px}.form-pane input,.form-pane select,.form-pane textarea{font-size:16px}.ob{padding-bottom:calc(32px + env(safe-area-inset-bottom,0px))}}
+.onboarding{min-height:100svh;background:var(--bg);color:var(--ink);padding:0 24px calc(32px + env(safe-area-inset-bottom,0px))}
+.brand{max-width:1040px;margin:0 auto;padding:26px 0;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.brand>a{text-decoration:none;font:700 26px var(--display);letter-spacing:-1px}
+.text-button{min-height:44px;padding:10px 0;border:0;background:none;color:var(--mute);font:500 13px var(--body);text-decoration:underline;text-underline-offset:4px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+.flow{max-width:560px;margin:24px auto 0;min-width:0}
+.step-navigation{display:flex;justify-content:space-between;align-items:center;gap:20px;font-size:12px;color:var(--mute)}
+progress{appearance:none;-webkit-appearance:none;display:block;width:100%;height:3px;border:0;border-radius:0;background:var(--line);accent-color:var(--green);margin:8px 0 40px}
+progress::-webkit-progress-bar{background:var(--line)}progress::-webkit-progress-value{background:var(--green)}progress::-moz-progress-bar{background:var(--green)}
+.question{margin-bottom:30px}.question h1{font:600 clamp(29px,4vw,42px)/1.12 var(--display);letter-spacing:-.035em;margin:0;overflow-wrap:anywhere;outline:none}
+.description{font-size:14px;line-height:1.65;color:var(--mute);margin:15px 0 0}.optional{font-size:12px;color:var(--mute);margin:0 0 12px}
+.answer{margin:0;padding:0;border:0;min-width:0;min-inline-size:0}
+input,textarea{width:100%;min-width:0;min-height:54px;padding:14px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:0;font:400 16px var(--body);box-sizing:border-box}
+input[type=date]{appearance:none;-webkit-appearance:none;min-inline-size:0}input[type=date]::-webkit-date-and-time-value{text-align:left;min-width:0}textarea{resize:vertical;line-height:1.6}
+.options{display:grid;gap:10px}.options button,.sports button{border:1px solid var(--line);border-radius:0;background:var(--bg);color:var(--ink);text-align:left;font:500 14px var(--body);padding:16px;min-height:52px;cursor:pointer}
+.options button[aria-pressed=true],.sports button[aria-pressed=true]{border-color:var(--ink);background:var(--soft);color:var(--ink);font-weight:700;outline:1px solid var(--ink);outline-offset:-2px}
+.sports{display:flex;gap:8px;flex-wrap:wrap}.sports button{font-size:13px;min-height:44px;padding:10px 13px}
+.selection-count,.character-count{font-size:12px;color:var(--mute);margin:0 0 14px}.character-count{text-align:right;margin:10px 0 0}
+.age-range{display:flex;align-items:center;gap:14px}.age-range label{flex:1;min-width:0;font-size:12px;color:var(--mute)}.age-range input{margin-top:8px}.age-range>span{padding-top:21px;color:var(--mute);font-size:13px}
+.location-button{width:100%;min-height:48px;border:1px solid var(--ink);border-radius:0;background:var(--bg);color:var(--ink);font:600 14px var(--body);cursor:pointer}.location-copy{font-size:12px;line-height:1.6;color:var(--mute);margin:12px 0 20px}.field span{font-size:12px;color:var(--mute)}details{margin-top:20px}summary{font-size:13px;color:var(--mute);min-height:44px;cursor:pointer;padding:10px 0}details .field{margin-top:10px}
+.actions{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-top:36px}.continue{width:100%;min-height:52px;padding:14px 20px;border:1px solid var(--ink);border-radius:0;background:var(--ink);color:var(--bg);font:600 14px var(--body);cursor:pointer}
+.error{font-size:13px;color:var(--danger);line-height:1.6;margin:20px 0 0}
+.review :deep(.ph){aspect-ratio:5/4;max-height:340px}.review :deep(.pc){background:var(--bg)}.review>.text-button{display:block;margin:12px auto 0}.review :deep(.info){padding:20px}.review :deep(.facts){gap:14px}
+.photos :deep(li),.photos :deep(.main),.photos :deep(.add label){border-radius:0}.photos :deep(.add label){color:var(--ink)}
+@media(min-width:701px){form{padding-bottom:30px}.answer{min-height:130px}}
+@media(max-width:600px){.onboarding{padding-left:20px;padding-right:20px}.brand{padding:16px 0}.brand>a{font-size:24px}.flow{margin-top:12px}progress{margin-bottom:30px}.question{margin-bottom:24px}.question h1{font-size:32px}.actions{margin-top:28px}.review :deep(.ph){max-height:290px}}
 </style>

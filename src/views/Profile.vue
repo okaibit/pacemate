@@ -13,6 +13,8 @@ import ProfileCard from "../components/ProfileCard.vue";
 
 const router = useRouter();
 const photoSection=ref(null);
+const editingRoutine=ref(false);
+const selectedRoutine=computed(()=>[...f.sports,f.level,f.routine,f.workStyle].filter(Boolean));
 const failedPhotos=ref(new Set());
 function openPhotos(){photoSection.value?.scrollIntoView({block:"start",behavior:"instant"});photoSection.value?.querySelector("button,input")?.focus({preventScroll:true});}
 function photoFailed(key){failedPhotos.value=new Set([...failedPhotos.value,key]);}
@@ -81,7 +83,15 @@ async function deleteAccount() {
       </section>
 
       <section class="card">
-        <h2>Sports and routine</h2>
+        <div class="routine-heading">
+          <h2>Sports and routine</h2>
+          <button type="button" class="link" :aria-expanded="editingRoutine" aria-controls="routine-options" @click="editingRoutine=!editingRoutine">{{ editingRoutine ? 'Done' : 'Edit' }}</button>
+        </div>
+        <template v-if="!editingRoutine">
+          <ul v-if="selectedRoutine.length" class="chips routine-selection" aria-label="Your sports and routine"><li v-for="value in selectedRoutine" :key="value" class="tag">{{ value }}</li></ul>
+          <button v-else type="button" class="link" @click="editingRoutine=true">Add sports and routine</button>
+        </template>
+        <div v-else id="routine-options">
         <p class="lbl">Sports (up to 8)</p>
         <div class="chips"><button type="button" v-for="s in SPORTS" :key="s" class="chip" :aria-pressed="f.sports.includes(s)" @click="toggle(f.sports, s, 8)">{{ s }}</button></div>
         <p class="lbl">Level</p>
@@ -90,6 +100,7 @@ async function deleteAccount() {
         <div class="chips"><button type="button" v-for="r in ROUTINES" :key="r" class="chip" :aria-pressed="f.routine === r" @click="f.routine = f.routine === r ? '' : r">{{ r }}</button></div>
         <p class="lbl">How you work</p>
         <div class="chips"><button type="button" v-for="w in WORK" :key="w" class="chip" :aria-pressed="f.workStyle === w" @click="f.workStyle = f.workStyle === w ? '' : w">{{ w }}</button></div>
+        </div>
       </section>
 
       <section class="card">
@@ -157,4 +168,8 @@ h2{font-size:20px;margin-bottom:12px}
 .profile-portrait{display:flex;align-items:center;gap:30px;padding:20px 12px 34px}.profile-portrait h2{font:400 30px/1.15 var(--editorial);margin:0;overflow-wrap:anywhere}.profile-portrait em{color:var(--coral)}
 .photo-deck{position:relative;display:grid;place-items:center;width:112px;height:148px;flex:none;border:0;padding:0;background:none;cursor:pointer;border-radius:var(--radius-photo)}
 .deck-card{position:absolute;inset:0;border:2px solid var(--line);border-radius:var(--radius-photo);overflow:hidden;background:var(--soft);display:grid;place-items:center}.deck-card img{width:100%;height:100%;object-fit:cover}.deck-card-0{z-index:3;box-shadow:var(--shadow-deck)}.deck-card-1{z-index:2;transform:translateX(-12px) rotate(-6deg);filter:brightness(.88)}.deck-card-2{z-index:1;transform:translateX(12px) rotate(6deg);filter:brightness(.88)}.photos-section{scroll-margin-top:100px}
+</style>
+
+<style scoped>
+.routine-heading{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:12px}.routine-heading h2{margin:0}.routine-selection{list-style:none;margin:0;padding:0}
 </style>
