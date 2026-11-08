@@ -11,6 +11,7 @@ import Avatar from "../components/Avatar.vue";
 import PhotoManager from "../components/PhotoManager.vue";
 import Modal from "../components/Modal.vue";
 import ProfileCard from "../components/ProfileCard.vue";
+import InstallApp from "../components/InstallApp.vue";
 
 const router = useRouter();
 const photoSection=ref(null), editor=ref(null), editorOpen=ref(false), activeTab=ref('plus');
@@ -165,6 +166,7 @@ async function deleteAccount() {
     </form>
     </div>
 
+    <InstallApp/>
     <section class="card stack account-section" style="margin-top:24px">
       <h2>Account</h2>
       <p class="mute small" style="margin:0">Signed in as {{ session.user?.email }}</p>
