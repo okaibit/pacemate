@@ -129,7 +129,7 @@ const ago = (iso) => {
     <template v-else-if="data">
       <!-- Nudges -->
       <div class="nudges" v-if="data.badges.likesYou || data.badges.unread">
-        <RouterLink v-if="data.badges.likesYou" to="/app/discover" class="nudge"> <b>{{ data.badges.likesYou }}</b> {{ data.badges.likesYou === 1 ? "person likes" : "people like" }} you. Keep swiping to find them.</RouterLink>
+        <RouterLink v-if="data.badges.likesYou" to="/app/discover" class="nudge"> <b>{{ data.badges.likesYou }}</b> {{ data.badges.likesYou === 1 ? "person likes" : "people like" }} you. Explore Discover to connect.</RouterLink>
         <RouterLink v-if="data.badges.unread" to="/app/matches" class="nudge"> <b>{{ data.badges.unread }}</b> unread {{ data.badges.unread === 1 ? "message" : "messages" }}</RouterLink>
       </div>
 
@@ -280,6 +280,7 @@ const ago = (iso) => {
 </template>
 
 <style scoped>
+.today{padding-bottom:128px}
 .h{font-size:30px;margin:2px 0 14px}
 h2{font-size:20px}
 .today>section,.today>.nudges{margin-bottom:14px}
