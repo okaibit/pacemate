@@ -1,5 +1,6 @@
 import {ref,computed} from 'vue';
 import {authClient,SUPABASE_URL,PUBLISHABLE_KEY} from '../supabase.js';
+import {setUnreadAppBadge} from '../app-badge.js';
 import {api} from '../api.js';
 export const supported=!!(window.isSecureContext&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window);
 export const iosHomeHint=/iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
@@ -44,4 +45,4 @@ export function noteMessage(){
  return keyRequest;
 }
 export function usePush(){return {enabled,error,busy,supported,needsHomeScreen,showPrompt:computed(()=>eligible.value&&!dismissed.value&&!enabled.value&&(supported||needsHomeScreen)),dismiss:()=>{dismissed.value=true;},enable:async()=>{busy.value=true;error.value='';try{await enablePush();}catch(e){error.value=e.message;}finally{busy.value=false;}}};}
-authClient.onChange((event,user)=>{if(!user){enabled.value=false;eligible.value=false;dismissed.value=false;}else syncPush().catch(()=>{});});
+authClient.onChange((event,user)=>{if(!user){setUnreadAppBadge(0);enabled.value=false;eligible.value=false;dismissed.value=false;}else syncPush().catch(()=>{});});

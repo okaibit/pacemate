@@ -8,6 +8,7 @@ import {noteMessage} from '../composables/usePush.js';
 import ArrivalPrompt from "../components/ArrivalPrompt.vue";
 import Avatar from "../components/Avatar.vue";
 import {subscribe} from "../realtime.js";
+import {setUnreadAppBadge} from "../app-badge.js";
 import {notificationPoll} from "../notification-poll.js";
 import {internalHref} from "../../supabase/functions/pacemate/server/validation.js";
 
@@ -40,7 +41,7 @@ function connectLive(){stopLive?.();const owner=session.user?.id;if(!owner)retur
 const incoming=ref(null);
 const poll=notificationPoll({request:api,currentUser:()=>session.user?.id,
  visible:()=>document.visibilityState==='visible',currentPath:()=>route.path,
- onBadges:data=>{badges.value=data;if(data.unread)noteMessage();},
+ onBadges:data=>{badges.value=data;setUnreadAppBadge(data.unread);if(data.unread)noteMessage();},
  onInbox:data=>{alerts.value=data.unread;if(data.unread)noteMessage();window.dispatchEvent(new CustomEvent('pacemate:inbox',{detail:data}));},
  onMessage:item=>{incoming.value=item;clearTimeout(bannerTimer);bannerTimer=setTimeout(()=>incoming.value=null,6000);}
 });
@@ -48,7 +49,7 @@ const refresh=()=>poll.refresh();
 onMounted(() => { refresh(); connectLive();timer = setInterval(refresh, 5000); document.addEventListener("visibilitychange", refresh); window.addEventListener('focus',refresh); });
 onBeforeUnmount(() => { stopLive?.();poll.stop();clearInterval(timer);clearTimeout(bannerTimer);document.removeEventListener("visibilitychange", refresh);window.removeEventListener('focus',refresh); });
 watch(() => route.path,()=>{incoming.value=null;refresh();});
-watch(()=>session.user?.id,()=>{incoming.value=null;alerts.value=0;badges.value={unread:0,likesYou:0};connectLive();refresh();});
+watch(()=>session.user?.id,()=>{incoming.value=null;setUnreadAppBadge(0);alerts.value=0;badges.value={unread:0,likesYou:0};connectLive();refresh();});
 </script>
 <template>
   <div class="shell" :class="{'in-chat':directChat}"><PushPrompt/>

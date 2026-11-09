@@ -7,9 +7,16 @@ self.addEventListener('fetch',event=>{
   // Never cache authenticated HTML, API responses, private photos or wellness data.
   if(url.origin===self.location.origin&&event.request.mode==='navigate')event.respondWith(fetch(event.request).catch(()=>caches.match('/offline.html')));
 });
+async function updateAppBadge(count){
+  if(!Number.isSafeInteger(count)||count<0)return;
+  try{
+    if(count===0&&typeof self.navigator?.clearAppBadge==='function')await self.navigator.clearAppBadge();
+    else if(typeof self.navigator?.setAppBadge==='function')await self.navigator.setAppBadge(count);
+  }catch{}
+}
 self.addEventListener('push',event=>{
   let data;try{data=event.data.json()||{};}catch{data={};}
-  event.waitUntil(self.registration.showNotification(data.title||'Pacemate',{body:data.body||'',icon:'/icon-192.png?v=leaf-1',badge:'/icon-192.png?v=leaf-1',tag:data.tag||'pacemate',data:{href:data.conversationId ? `/chat/${encodeURIComponent(data.conversationId)}` : data.href||'/app/notifications'}}));
+  event.waitUntil(Promise.all([updateAppBadge(data.unreadCount),self.registration.showNotification(data.title||'Pacemate',{body:data.body||'',icon:'/icon-192.png?v=leaf-1',badge:'/icon-192.png?v=leaf-1',tag:data.tag||'pacemate',data:{href:data.conversationId ? `/chat/${encodeURIComponent(data.conversationId)}` : data.href||'/app/notifications'}})]));
 });
 self.addEventListener('notificationclick',event=>{
   event.notification.close();

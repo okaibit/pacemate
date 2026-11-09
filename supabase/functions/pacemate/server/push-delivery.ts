@@ -27,6 +27,11 @@ export async function deliverPushNotification(n:any){
  const subscribers=await rows('SELECT * FROM public.push_subscriptions WHERE user_id=$1 LIMIT 5',[n.user_id]);
  const valid=subscribers.filter(s=>validPushSubscription({endpoint:s.endpoint,keys:{p256dh:s.p256dh,auth:s.auth}}));
  if(!valid.length)return 'skipped';
+ const [counts]=await rows(`SELECT count(*)::int AS "unreadCount" FROM public.messages msg JOIN public.matches m ON m.id=msg.match_id
+  JOIN public.profiles a ON a.id=m.user_a JOIN public.profiles b ON b.id=m.user_b
+  WHERE $1 IN(m.user_a,m.user_b) AND msg.sender_id<>$1 AND msg.read_at IS NULL AND NOT a.suspended AND NOT b.suspended
+  AND NOT EXISTS(SELECT 1 FROM public.blocks x WHERE(x.blocker_id=m.user_a AND x.blocked_id=m.user_b)OR(x.blocker_id=m.user_b AND x.blocked_id=m.user_a))`,[n.user_id]);
+ const unreadCount=Math.max(0,Number(counts?.unreadCount)||0);
  const {default:webpush}=await import('web-push');
  webpush.setVapidDetails(Deno.env.get('VAPID_SUBJECT')||'mailto:trypacemate@gmail.com',publicKey,privateKey);
  const title=n.kind==='message'?'New message':n.kind==='match'?'You have a new match':n.title;
@@ -34,7 +39,7 @@ export async function deliverPushNotification(n:any){
  let failed=false,accepted=0;
  await Promise.all(valid.map(async s=>{
   try{
-   const details=webpush.generateRequestDetails({endpoint:s.endpoint,keys:{p256dh:s.p256dh,auth:s.auth}},JSON.stringify({title,body,href:internalHref(n.href),tag:`pacemate-${n.id}`}),{TTL:3600});
+   const details=webpush.generateRequestDetails({endpoint:s.endpoint,keys:{p256dh:s.p256dh,auth:s.auth}},JSON.stringify({title,body,unreadCount,href:internalHref(n.href),tag:`pacemate-${n.id}`}),{TTL:3600});
    const response=await fetch(details.endpoint,{method:details.method,headers:Object.fromEntries(Object.entries(details.headers).map(([k,v])=>[k,String(v)])),body:details.body?new Uint8Array(details.body).buffer:undefined,signal:AbortSignal.timeout(10000)});
    if(!response.ok)throw Object.assign(new Error('Push delivery failed'),{statusCode:response.status});
    accepted++;

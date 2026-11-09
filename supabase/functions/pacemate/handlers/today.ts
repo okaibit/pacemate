@@ -62,7 +62,9 @@ async function badges(meId: string) {
   const [r] = await rows(`
     SELECT
       (SELECT count(*) FROM public.messages m JOIN public.matches x ON x.id=m.match_id
-        WHERE (x.user_a=$1 OR x.user_b=$1) AND m.sender_id<>$1 AND m.read_at IS NULL)::int AS unread,
+        WHERE (x.user_a=$1 OR x.user_b=$1) AND m.sender_id<>$1 AND m.read_at IS NULL
+        AND NOT EXISTS(SELECT 1 FROM public.profiles p WHERE p.id IN(x.user_a,x.user_b) AND p.suspended)
+        AND NOT EXISTS(SELECT 1 FROM public.blocks b WHERE(b.blocker_id=x.user_a AND b.blocked_id=x.user_b)OR(b.blocker_id=x.user_b AND b.blocked_id=x.user_a)))::int AS unread,
       (SELECT count(*) FROM public.swipes s JOIN public.profiles p ON p.id=s.swiper_id
         WHERE s.target_id=$1 AND s.swiper_id<>$1 AND s.liked AND NOT p.paused AND NOT p.suspended
         AND NOT EXISTS (SELECT 1 FROM public.blocks b WHERE (b.blocker_id=$1 AND b.blocked_id=s.swiper_id) OR (b.blocker_id=s.swiper_id AND b.blocked_id=$1)))::int AS "likesYou"`,[meId]);

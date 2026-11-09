@@ -17,6 +17,7 @@ test('signed-in app renders the routed page within navigation, not a standalone 
   if(id==='../auth.js')return '\0auth';
   if(id==='../api.js')return '\0api';
   if(id==='../realtime.js')return '\0realtime';
+  if(id==='../app-badge.js')return fileURLToPath(new URL('../src/app-badge.js',import.meta.url));
   if(id==='../notification-poll.js')return fileURLToPath(new URL('../src/notification-poll.js',import.meta.url));
   if(id.endsWith('/server/validation.js'))return fileURLToPath(new URL('../supabase/functions/pacemate/server/validation.js',import.meta.url));
   if(id==='../composables/usePush.js')return '\0push';
