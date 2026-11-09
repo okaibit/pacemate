@@ -8,7 +8,7 @@ import {firstLink,mergeMessages} from './chat-model.js';
 
 export function useChat(conversationId,{mock=false}={}){
  const me=session.user?.id,other=ref(null),messages=ref([]),unread=ref(0),error=ref(''),loading=ref(false),hasOlder=ref(false),ready=ref(false);
- const muted=ref(false);let stopPresence;
+ const canReply=ref(mock),muted=ref(false);let stopPresence;
  let stopped=false,stop,timer,refreshing=false,refreshAgain=false,reading=false;
  const matchId=Number(conversationId);
  async function rest(path,{method='GET',body,prefer='return=representation',headers={}}={}){
@@ -24,7 +24,8 @@ export function useChat(conversationId,{mock=false}={}){
  async function reactions(){const saved=messages.value.filter(m=>Number.isSafeInteger(m.id));if(!saved.length)return;const all=[];for(let i=0;i<saved.length;i+=100){const {data}=await rest(`message_reactions?select=*&message_id=in.(${saved.slice(i,i+100).map(m=>m.id).join(',')})`);all.push(...data);}if(!stopped)messages.value=messages.value.map(m=>({...m,reactions:all.filter(r=>r.message_id===m.id)}));}
  async function countUnread(){const {range}=await rest(`messages?select=id&conversation_id=eq.${matchId}&sender_id=neq.${me}&read_at=is.null&limit=1`,{headers:{Prefer:'count=exact'}});unread.value=Number(range?.split('/')[1])||0;}
  async function older(){if(loading.value||stopped||mock)return;loading.value=true;
-  try{const ids=messages.value.map(m=>m.id).filter(Number.isSafeInteger);const before=ids.length?`&id=lt.${Math.min(...ids)}`:'';const {data}=await rest(`messages?select=*&conversation_id=eq.${matchId}${before}&order=id.desc&limit=30`);hasOlder.value=data.length===30;put(data);await reactions();await images();}catch(e){if(!stopped)error.value=e.message;}finally{loading.value=false;}}
+  try{const ids=messages.value.map(m=>m.id).filter(Number.isSafeInteger);const before=ids.length?`&id=lt.${Math.min(...ids)}`:'';const {data}=await rest(`messages?select=*&conversation_id=eq.${matchId}${before}&order=id.desc&limit=30`);hasOlder.value=data.length===30;put(data);await reactions();await images();await replies();}catch(e){if(!stopped)error.value=e.message;}finally{loading.value=false;}}
+ async function replies(){const pending=messages.value.filter(m=>m.reply_to_id&&!m.reply&&Number.isSafeInteger(m.id));for(let i=0;i<pending.length;i+=100){const result=await api(`/api/matches/${matchId}/chat?replies=${pending.slice(i,i+100).map(m=>m.id).join(',')}`,{expectedUserId:me});if(!stopped)messages.value=messages.value.map(m=>({...m,reply:result.replies[m.id]||m.reply}));}}
  async function images(){const missing=messages.value.filter(m=>m.attachment_id);if(!missing.length)return;const urls={};for(let i=0;i<missing.length;i+=100){const result=await api(`/api/matches/${matchId}/chat?images=${missing.slice(i,i+100).map(m=>m.id).join(',')}`,{expectedUserId:me});Object.assign(urls,result.images);}if(!stopped)messages.value=messages.value.map(m=>({...m,imageUrl:urls[m.id]||m.imageUrl}));}
  async function refresh(change){
   if(stopped||mock||document.visibilityState!=='visible'||!ready.value)return;
@@ -36,7 +37,7 @@ export function useChat(conversationId,{mock=false}={}){
    for(let start=0;start<ids.length;start+=100){const {data}=await rest(`messages?select=*&conversation_id=eq.${matchId}&id=in.(${ids.slice(start,start+100).join(',')})`);put(data);}
    let after=ids.length?Math.max(...ids):0;
    for(let page=0;page<20;page++){const {data}=await rest(`messages?select=*&conversation_id=eq.${matchId}&id=gt.${after}&order=id.asc&limit=100`);put(data);if(data.length<100)break;after=data.at(-1).id;}
-   await Promise.all([countUnread(),reactions(),images()]);error.value='';
+   await Promise.all([countUnread(),reactions(),images(),replies()]);error.value='';
   }catch(e){if(!stopped){error.value=e.message;}}
   finally{refreshing=false;if(refreshAgain&&!stopped){refreshAgain=false;refresh();}}
  }
@@ -44,7 +45,7 @@ export function useChat(conversationId,{mock=false}={}){
   if(mock){other.value={name:'Alex',photos:[]};messages.value=[{id:1,sender_id:'demo-other',body:'Hey! Ready for our next run? 🏃',created_at:new Date(Date.now()-180000).toISOString(),status:'sent',reactions:[{user_id:me,emoji:'👍'}]},{id:2,sender_id:me,body:'Absolutely! Same place tomorrow?',created_at:new Date(Date.now()-120000).toISOString(),read_at:new Date().toISOString(),status:'read'},{id:3,sender_id:'demo-other',type:'link',body:'A little inspiration for the route',link_url:'https://www.youtube.com/watch?v=example',link_meta:{title:'A new route. A fresh start.',image:new URL('/images/event.jpg',window.location.origin).href,logo:new URL('/app-icon.svg',window.location.origin).href,video:true,duration:'4:32'},created_at:new Date().toISOString(),status:'sent'}];return;}
   loading.value=true;
   try{
-   const info=await api(`/api/matches/${matchId}/chat`,{expectedUserId:me});other.value=info.other;
+   const info=await api(`/api/matches/${matchId}/chat`,{expectedUserId:me});other.value=info.other;canReply.value=info.repliesEnabled===true;
    const membership=await rest(`conversations?select=id&id=eq.${matchId}`);if(!membership.data.length)throw new Error('This match is no longer available.');
    stopPresence=subscribe(`push:${me}`,()=>{},()=>{},undefined,{key:crypto.randomUUID(),state:()=>({conversation_id:matchId,visible:document.visibilityState==='visible'})});
    pushRest(`conversation_members?select=muted_until&conversation_id=eq.${matchId}&user_id=eq.${me}`).then(rows=>{muted.value=!!rows[0]?.muted_until&&Date.parse(rows[0].muted_until)>Date.now();}).catch(()=>{});
@@ -57,18 +58,18 @@ export function useChat(conversationId,{mock=false}={}){
  async function deliver(optimistic,file){
   try{
    let saved;
-   if(file){const existing=await rest(`messages?select=*&sender_id=eq.${me}&client_id=eq.${optimistic.client_id}`);if(existing.data.length){put(existing.data);await images();return;}const blob=await resizeImage(file);const {attachmentId}=await api(`/api/matches/${matchId}/attachments`,{method:'POST',body:blob,raw:'image/jpeg',expectedUserId:me});const result=await api(`/api/matches/${matchId}/messages`,{method:'POST',body:{body:optimistic.body,attachmentId,clientId:optimistic.client_id},expectedUserId:me});saved={...optimistic,...result.message,id:result.message.id,status:'sent',created_at:result.message.createdAt,attachment_id:attachmentId};}
+   if(file){const existing=await rest(`messages?select=*&sender_id=eq.${me}&client_id=eq.${optimistic.client_id}`);if(existing.data.length){put(existing.data);await images();return;}const blob=await resizeImage(file);const {attachmentId}=await api(`/api/matches/${matchId}/attachments`,{method:'POST',body:blob,raw:'image/jpeg',expectedUserId:me});const result=await api(`/api/matches/${matchId}/messages`,{method:'POST',body:{body:optimistic.body,attachmentId,clientId:optimistic.client_id,replyToId:optimistic.reply_to_id||null},expectedUserId:me});saved={...optimistic,...result.message,id:result.message.id,status:'sent',created_at:result.message.createdAt,attachment_id:attachmentId};}
    else{
     // All sends pass through the authenticated API so committed messages queue push.
-    try{const result=await api(`/api/matches/${matchId}/messages`,{method:'POST',body:{body:optimistic.body,clientId:optimistic.client_id},expectedUserId:me});
+    try{const result=await api(`/api/matches/${matchId}/messages`,{method:'POST',body:{body:optimistic.body,clientId:optimistic.client_id,replyToId:optimistic.reply_to_id||null},expectedUserId:me});
      saved={...optimistic,...result.message,id:result.message.id,status:'sent',created_at:result.message.createdAt};
     }catch(error){const recovered=await rest(`messages?select=*&sender_id=eq.${me}&client_id=eq.${optimistic.client_id}`);if(!recovered.data.length)throw error;saved=recovered.data[0];}
    }
    put([saved]);enrich(saved);
   }catch(e){if(!stopped){put([{...optimistic,status:'failed',file}]);error.value=e.message;}}
  }
- function send(body,file){body=body.trim();if(stopped||(!body&&!file)||(!ready.value&&!mock))return false;
-  const client_id=crypto.randomUUID(),message={id:`local:${client_id}`,client_id,sender_id:me,body,type:file?'image':'text',link_url:file?null:firstLink(body),created_at:new Date().toISOString(),status:'sending',imageUrl:file?URL.createObjectURL(file):null};
+ function send(body,file,reply=null){body=body.trim();if(stopped||(!body&&!file)||(!ready.value&&!mock))return false;if(reply&&(!canReply.value||!Number.isSafeInteger(reply.id)))return false;
+  const client_id=crypto.randomUUID(),message={id:`local:${client_id}`,client_id,sender_id:me,body,reply_to_id:reply?.id||null,reply:reply?{id:reply.id,sender_id:reply.sender_id,body:reply.body?.slice(0,240)||'',type:reply.type}:null,type:file?'image':'text',link_url:file?null:firstLink(body),created_at:new Date().toISOString(),status:'sending',imageUrl:file?URL.createObjectURL(file):null};
   put([message]);if(message.imageUrl)objectUrls.push(message.imageUrl);if(mock){setTimeout(()=>put([{...message,id:Date.now(),status:'sent'}]),400);}else deliver(message,file);return true;
  }
  const objectUrls=[];
@@ -79,5 +80,5 @@ export function useChat(conversationId,{mock=false}={}){
  function retry(message){put([{...message,status:'sending'}]);deliver(message,message.file);}
  onBeforeUnmount(()=>{stopped=true;stop?.();stopPresence?.();clearInterval(timer);document.removeEventListener('visibilitychange',refresh);objectUrls.forEach(url=>URL.revokeObjectURL(url));});
  start();
- return {muted,toggleMute,me,other,messages,unread,error,loading,hasOlder,ready,older,send,markRead,react,retry,unmatch};
+ return {canReply,muted,toggleMute,me,other,messages,unread,error,loading,hasOlder,ready,older,send,markRead,react,retry,unmatch};
 }

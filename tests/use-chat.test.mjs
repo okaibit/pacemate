@@ -10,10 +10,10 @@ let originalFetch;
 const waitFor=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(resolve=>setTimeout(resolve,5));}assert.fail('Chat operation did not settle');};
 test.beforeEach(()=>{requests=[];records=[];stopHandler=null;failAfterInsert=false;globalThis.__chatFixture.user={id:'me'};globalThis.__chatFixture.disposed=false;globalThis.__chatFixture.api=async(path,options)=>{
  if(path.endsWith('/messages')&&options?.method==='POST'){
-  const {body,clientId}=options.body;const row={id:100,sender_id:'me',body,client_id:clientId,created_at:new Date().toISOString(),status:'sent'};records.push(row);
-  requests.push({api:true,path,method:'POST'});if(failAfterInsert){failAfterInsert=false;throw Error('Response lost');}
+  const {body,clientId,replyToId}=options.body;const row={id:100,sender_id:'me',body,client_id:clientId,reply_to_id:replyToId,created_at:new Date().toISOString(),status:'sent'};records.push(row);
+  requests.push({api:true,path,method:'POST',body:options.body});if(failAfterInsert){failAfterInsert=false;throw Error('Response lost');}
   return {message:{id:row.id,body,createdAt:row.created_at}};
- }return {other:{id:'other',name:'Alex'}};};originalFetch=globalThis.fetch;
+ }return {other:{id:'other',name:'Alex'},repliesEnabled:true,replies:{}};};originalFetch=globalThis.fetch;
  globalThis.fetch=async(url,options)=>{
   const u=new URL(url),table=u.pathname.split('/').at(-1),method=options.method;requests.push({url:u,method,body:options.body&&JSON.parse(options.body)});
   if(table==='conversations')return Response.json([{id:12}]);
@@ -48,4 +48,12 @@ test('hidden chats do not send read acknowledgements; visible receipt updates on
 test('unmount removes subscriptions and prevents subsequent writes',async()=>{
  const chat=useChat(12);await waitFor(()=>chat.ready.value&&!chat.loading.value);stopHandler();assert.equal(globalThis.__chatFixture.disposed,true);const previous=requests.length;
  chat.send('After leaving');await new Promise(resolve=>setTimeout(resolve,15));assert.equal(requests.length,previous);
+});
+
+test('reply sends the selected saved ID and retains its quote in the optimistic bubble',async()=>{
+ records=[{id:7,sender_id:'other',body:'Morning run?',created_at:new Date().toISOString()}];
+ const chat=useChat(12);await waitFor(()=>chat.ready.value&&!chat.loading.value);assert.equal(chat.canReply.value,true);
+ chat.send('Yes',null,records[0]);assert.equal(chat.messages.value.at(-1).reply.body,'Morning run?');
+ await waitFor(()=>chat.messages.value.at(-1).status==='sent');
+ const post=requests.find(r=>r.api&&r.method==='POST');assert.equal(post.body.replyToId,7);assert.equal(post.body.reply,undefined);
 });

@@ -1,17 +1,20 @@
 import {handle,json,body,HttpError,publicProfile} from '../server/http.ts';
 import {rows,requireMatch,rateLimit,camel} from '../server/feature-db.ts';
 import {signedPhoto} from '../server/supabase.ts';
+import {repliesEnabled,replyQuotes} from '../server/chat-replies.ts';
 import {fetchPreview} from '../server/link-preview.js';
 export default handle(async(req,ctx)=>{
  const id=Number(ctx.params.id),{user,match}=await requireMatch(req,id);
  if(req.method==='GET'){
+  const replyParam=new URL(req.url).searchParams.get('replies');
+  if(replyParam!==null){const ids=replyParam.split(',').map(Number).filter(n=>Number.isSafeInteger(n)&&n>0).slice(0,100);return json({replies:await replyQuotes(id,ids)});}
   const imageParam=new URL(req.url).searchParams.get('images');
   if(imageParam!==null){const ids=imageParam.split(',').map(Number).filter(n=>Number.isSafeInteger(n)&&n>0).slice(0,100),images:Record<string,string>={};
    if(ids.length){const attachments=await rows(`SELECT m.id,a.object_key FROM public.messages m JOIN public.chat_attachments a ON a.id=m.attachment_id WHERE m.match_id=$1 AND m.id=ANY($2::int[])`,[id,'{'+ids.join(',')+'}']);
     for(let i=0;i<attachments.length;i+=5)await Promise.all(attachments.slice(i,i+5).map(async a=>{images[a.id]=await signedPhoto('chat',a.object_key);}));}
    return json({images});
   }
-  const [p]=await rows('SELECT * FROM public.profiles WHERE id=$1',[match.other_id]);return json({other:publicProfile(camel(p))});
+  const [p]=await rows('SELECT * FROM public.profiles WHERE id=$1',[match.other_id]);return json({other:publicProfile(camel(p)),repliesEnabled:await repliesEnabled()});
  }
  if(req.method==='POST'){
   const b=await body(req),messageId=Number(b.messageId);if(!Number.isSafeInteger(messageId)||messageId<1)throw new HttpError(422,'Invalid message.');

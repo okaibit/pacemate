@@ -1,6 +1,7 @@
 import {handle,json,body,str,HttpError,publicProfile} from '../server/http.ts';
 import {rows,transaction,requireMatch,rateLimit,camel} from '../server/feature-db.ts';
 import {queueSocialPush} from '../server/push-delivery.ts';
+import {repliesEnabled,replyQuotes} from '../server/chat-replies.ts';
 import {signedPhoto} from '../server/supabase.ts';
 
 export default handle(async(req,ctx)=>{
@@ -31,7 +32,9 @@ export default handle(async(req,ctx)=>{
   if(req.method==='POST'){
     await rateLimit(user.id,'message',30);
     const b=await body(req),text=str(b.body,2000,'Message'),attachmentId=b.attachmentId||null;
-    const clientId=b.clientId||null;
+    const clientId=b.clientId||null,replyToId=b.replyToId??null;
+    if(replyToId!==null&&(!Number.isSafeInteger(replyToId)||replyToId<1))throw new HttpError(422,'Choose a saved message to reply to.');
+    if(replyToId!==null&&!await repliesEnabled())throw new HttpError(409,'Replies are not available yet. Send a new message instead.');
     const candidate=text.match(/https?:\/\/[^\s<>]+/i)?.[0]?.replace(/[.,!?)]+$/,'');
     let linkUrl=null;try{const link=new URL(candidate);if(['http:','https:'].includes(link.protocol)&&!link.username&&!link.password)linkUrl=link.href;}catch{}
     const type=attachmentId?'image':linkUrl?'link':'text';
@@ -47,18 +50,22 @@ export default handle(async(req,ctx)=>{
         const existing=await tx.unsafe('SELECT * FROM public.messages WHERE sender_id=$1 AND client_id=$2',[user.id,clientId]);
         if(existing.length){if(existing[0].match_id!==id)throw new HttpError(422,'Message identity belongs to another conversation.');return existing;}
       }
+      if(replyToId!==null){const original=await tx.unsafe('SELECT id FROM public.messages WHERE id=$1 AND match_id=$2',[replyToId,id]);if(!original.length)throw new HttpError(422,'This message is no longer available to reply to.');}
       if(attachmentId){
         const attachment=await tx.unsafe(`SELECT 1 FROM public.chat_attachments a WHERE a.id=$1 AND a.user_id=$2 AND a.match_id=$3 AND NOT EXISTS(SELECT 1 FROM public.messages WHERE attachment_id=a.id)`,[attachmentId,user.id,id]);
         if(!attachment.length)throw new HttpError(422,'This photo is not available. Upload it again.');
       }
-      return clientId
+      const inserted=await (clientId
         ?tx.unsafe('INSERT INTO public.messages(match_id,sender_id,body,attachment_id,client_id,type,link_url) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',[id,user.id,text,attachmentId,clientId,type,linkUrl])
-        :tx.unsafe('INSERT INTO public.messages(match_id,sender_id,body,attachment_id,type,link_url) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[id,user.id,text,attachmentId,type,linkUrl]);
+        :tx.unsafe('INSERT INTO public.messages(match_id,sender_id,body,attachment_id,type,link_url) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[id,user.id,text,attachmentId,type,linkUrl]));
+      if(replyToId!==null)await tx.unsafe('UPDATE public.messages SET reply_to_id=$2 WHERE id=$1',[inserted[0].id,replyToId]);
+      return inserted;
     });
     queueSocialPush(`message:${message.id}`);
     let imageUrl=null;
     if(message.attachment_id){const [a]=await rows('SELECT object_key FROM public.chat_attachments WHERE id=$1',[message.attachment_id]);if(a)imageUrl=await signedPhoto('chat',a.object_key);}
-    return json({message:{id:message.id,body:message.body,mine:true,createdAt:message.created_at,imageUrl}},201);
+    const quotes=await replyQuotes(id,[message.id]);
+    return json({message:{id:message.id,body:message.body,mine:true,createdAt:message.created_at,imageUrl,reply_to_id:quotes[message.id]?.id||null,reply:quotes[message.id]||null}},201);
   }
   throw new HttpError(405,'Method not allowed');
 });
