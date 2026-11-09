@@ -13,13 +13,13 @@ const directChat = computed(() => route.meta.directChat);
 const badges = ref({ unread: 0, likesYou: 0 });
 const alerts = ref(0);
 const tabs = computed(() => windowWidth.value < 1050 ? [
-  ["/app/discover", "Discover", "likesYou"],
+  ["/app/discover", "Discover", null],
   ["/app/today", "Today", null],
   ["/app/matches", "Matches", "unread"],
   ["/app/events", "Events", null],
   ["/app/profile", "Profile", null],
 ] : [
-  ["/app/discover", "Discover", "likesYou"],
+  ["/app/discover", "Discover", null],
   ["/app/matches", "Matches", "unread"],
   ["/app/events", "Sessions", null],
   ["/app/today", "Today", null],
