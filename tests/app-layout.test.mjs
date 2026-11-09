@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
 import {parse,compileScript} from '@vue/compiler-sfc';
 import {rolldown} from 'rolldown';
 import {createSSRApp,h} from 'vue';
@@ -15,6 +16,8 @@ test('signed-in app renders the routed page within navigation, not a standalone 
   if(id.endsWith('.vue'))return '\0component:'+id;
   if(id==='../auth.js')return '\0auth';
   if(id==='../api.js')return '\0api';
+  if(id==='../notification-poll.js')return fileURLToPath(new URL('../src/notification-poll.js',import.meta.url));
+  if(id.endsWith('/server/validation.js'))return fileURLToPath(new URL('../supabase/functions/pacemate/server/validation.js',import.meta.url));
   if(id==='../composables/usePush.js')return '\0push';
  },load(id){
   if(id==='\0layout')return script;

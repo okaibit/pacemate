@@ -7,6 +7,8 @@ import PushPrompt from '../components/PushPrompt.vue';
 import {noteMessage} from '../composables/usePush.js';
 import ArrivalPrompt from "../components/ArrivalPrompt.vue";
 import Avatar from "../components/Avatar.vue";
+import {notificationPoll} from "../notification-poll.js";
+import {internalHref} from "../../supabase/functions/pacemate/server/validation.js";
 
 const route = useRoute();
 const directChat = computed(() => route.meta.directChat);
@@ -29,17 +31,23 @@ const windowWidth = ref(typeof window === "undefined" ? 1050 : window.innerWidth
 function resize(){windowWidth.value=window.innerWidth;}
 onMounted(()=>window.addEventListener("resize",resize));
 onBeforeUnmount(()=>window.removeEventListener("resize",resize));
-let timer;
-async function refresh() {
-  if (document.visibilityState !== "visible") return;
-  try { badges.value = await api("/api/today/badges"); if(badges.value.unread)noteMessage(); alerts.value = (await api("/api/notifications")).unread;if(alerts.value)noteMessage(); } catch {}
-}
-onMounted(() => { refresh(); timer = setInterval(refresh, 30000); document.addEventListener("visibilitychange", refresh); });
-onBeforeUnmount(() => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); });
-watch(() => route.path, refresh);
+let timer,bannerTimer;
+const incoming=ref(null);
+const poll=notificationPoll({request:api,currentUser:()=>session.user?.id,
+ visible:()=>document.visibilityState==='visible',currentPath:()=>route.path,
+ onBadges:data=>{badges.value=data;if(data.unread)noteMessage();},
+ onInbox:data=>{alerts.value=data.unread;if(data.unread)noteMessage();window.dispatchEvent(new CustomEvent('pacemate:inbox',{detail:data}));},
+ onMessage:item=>{incoming.value=item;clearTimeout(bannerTimer);bannerTimer=setTimeout(()=>incoming.value=null,6000);}
+});
+const refresh=()=>poll.refresh();
+onMounted(() => { refresh(); timer = setInterval(refresh, 5000); document.addEventListener("visibilitychange", refresh); window.addEventListener('focus',refresh); });
+onBeforeUnmount(() => { poll.stop();clearInterval(timer);clearTimeout(bannerTimer);document.removeEventListener("visibilitychange", refresh);window.removeEventListener('focus',refresh); });
+watch(() => route.path,()=>{incoming.value=null;refresh();});
+watch(()=>session.user?.id,()=>{incoming.value=null;alerts.value=0;badges.value={unread:0,likesYou:0};refresh();});
 </script>
 <template>
   <div class="shell" :class="{'in-chat':directChat}"><PushPrompt/>
+    <aside v-if="incoming" class="incoming-message" role="status" aria-live="polite"><RouterLink :to="internalHref(incoming.href)" @click="incoming=null">{{ incoming.title || 'New message' }}<span>Open conversation</span></RouterLink><button type="button" aria-label="Dismiss notification" @click="incoming=null">×</button></aside>
     <header v-if="!directChat" class="hdr">
       <div class="narrow inner">
         <RouterLink to="/app/discover" class="logo brand-lockup"><img class="brand-mark" src="/logo-mark.svg" alt="" aria-hidden="true">Pacemate</RouterLink>
@@ -122,4 +130,8 @@ watch(() => route.path, refresh);
 
 <style scoped>
 .alerts{box-sizing:border-box;width:44px;height:44px;padding:10px;align-items:center;justify-content:center;flex:none}.alerts svg{flex:none;width:22px;height:22px}.alert-count{box-sizing:border-box;top:1px;right:1px;min-width:16px;height:16px;line-height:16px;padding:0 4px;font-size:9px;text-align:center;border-radius:999px}
+</style>
+
+<style scoped>
+.incoming-message{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:16px;right:16px;max-width:440px;margin:0 auto;z-index:60;display:flex;align-items:center;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:12px 16px}.incoming-message a{flex:1;text-decoration:none;font-weight:700}.incoming-message span{display:block;color:var(--mute);font-weight:400;font-size:12px;margin-top:4px}.incoming-message button{background:none;border:0;color:var(--ink);font-size:24px;min-width:44px;min-height:44px}
 </style>
