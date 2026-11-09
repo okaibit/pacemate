@@ -7,9 +7,11 @@ const fixture=globalThis.__discoverLoading={calls:[],timers:[],dispose:[],sessio
 const {descriptor}=parse(readFileSync('src/views/Discover.vue','utf8'));
 const script=compileScript(descriptor,{id:'discover-loading-fixture'}).content;
 const bundle=await rolldown({input:'discover-fixture',plugins:[{name:'offline-discover',resolveId(id){
+ if(id==='../discover-viewport.js')return '\0viewport';
  if(id==='discover-fixture')return '\0discover';
  if(['vue','vue-router','../api.js','../auth.js','../location.js','../money.js','../options.js'].includes(id)||id.endsWith('.vue'))return '\0fixture:'+id;
 },load(id){
+ if(id==='\0viewport')return 'export const fitDiscoverViewport=()=>()=>{};';
  if(id==='\0discover')return script;
  if(id==='\0fixture:vue')return 'export const ref=value=>({value});export const onMounted=()=>{};export const onBeforeUnmount=fn=>globalThis.__discoverLoading.dispose.push(fn);export const watch=()=>{};';
  if(id==='\0fixture:vue-router')return 'export const useRouter=()=>({push(){}});';
@@ -32,7 +34,7 @@ test('a late result cannot replace a newer discovery search',async()=>{let resol
 test('returning to Anywhere clears an earlier city/radius search',()=>{const v=setup();v.scope.value='city';v.city.value='Abuja';v.radius.value=25;v.draftCity.value='Abuja';v.selectScope('anywhere');assert.equal(v.city.value,'');assert.equal(v.radius.value,'');assert.equal(v.draftCity.value,'');});
 test('reset clears all optional filters and fetches Anywhere',async()=>{fixture.respond=async()=>({people:[]});const v=setup();v.country.value='NG';v.sport.value='Running';v.arriving.value=true;v.likes.value=true;v.city.value='Lagos';v.resetFilters();await Promise.resolve();assert.equal(fixture.calls[0].path,'/api/discover?scope=anywhere');});
 test('malformed responses and server failures leave an error instead of an endless loader',async()=>{for(const result of [{},null]){fixture.respond=async()=>result;const v=setup();await v.load();assert.equal(v.loading.value,false);assert.ok(v.err.value);}});
-test('unmounted or changed accounts do not apply an earlier discovery response',async()=>{let resolve;fixture.respond=()=>new Promise(r=>resolve=r);const v=setup(),pending=v.load();fixture.dispose[0]();resolve({people:[{id:'private'}]});await pending;assert.deepEqual(v.people.value,[]);});
+test('unmounted or changed accounts do not apply an earlier discovery response',async()=>{let resolve;fixture.respond=()=>new Promise(r=>resolve=r);const v=setup(),pending=v.load();fixture.dispose.forEach(dispose=>dispose());resolve({people:[{id:'private'}]});await pending;assert.deepEqual(v.people.value,[]);});
 
 test('service failures retain the safe request reference and leave loading',async()=>{
  fixture.respond=async()=>{throw Object.assign(new Error('The service is temporarily unavailable. Please try again.'),{status:503,code:'CONNECTION_CLOSED',requestId:'request-fixture'});};

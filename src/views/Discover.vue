@@ -4,7 +4,8 @@ import { useRouter } from "vue-router";
 import { api, formatEventTime } from "../api.js";
 import { session } from "../auth.js";
 import Modal from "../components/Modal.vue";
-import ProfileCard from "../components/ProfileCard.vue";
+import DiscoverCard from "../components/DiscoverCard.vue";
+import {fitDiscoverViewport} from "../discover-viewport.js";
 import ReportDialog from "../components/ReportDialog.vue";
 import {COUNTRIES} from "../money.js";
 import { CITIES } from "../options.js";
@@ -12,6 +13,9 @@ import Avatar from "../components/Avatar.vue";
 import {requestLocation} from "../location.js";
 
 const router = useRouter();
+const page=ref(null);let releaseViewport;
+onMounted(()=>{releaseViewport=fitDiscoverViewport(page.value);});
+onBeforeUnmount(()=>releaseViewport?.());
 const upcomingSession=ref(null);
 let sessionRequest;
 function loadUpcomingSession(){
@@ -98,7 +102,7 @@ function onSafety(kind) {
   notice.value = kind === "report" ? "Thanks. We received your report and blocked this member." : "Blocked. You will not see each other again.";
 }
 function onKey(e) {
-  if (filtersOpen.value || match.value || safety.value || ["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(e.target.tagName)) return;
+  if (filtersOpen.value || match.value || safety.value || (typeof document !== "undefined" && document.querySelector('[role="dialog"][aria-modal="true"]')) || ["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(e.target.tagName)) return;
   if (e.key === "ArrowLeft") swipe(false);
   if (e.key === "ArrowRight") swipe(true);
 }
@@ -107,7 +111,7 @@ onBeforeUnmount(() => { active=false; window.removeEventListener("keydown", onKe
 </script>
 
 <template>
-  <div class="discover-page">
+  <div ref="page" class="discover-page" :class="{'has-profile':people.length>0}">
     <header class="discover-top"><h1 class="discover-heading">Discover<span>.</span></h1><button class="filter-button" @click="filtersOpen=true" aria-label="Discovery filters" aria-haspopup="dialog"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--card)"/><circle cx="15" cy="17" r="3" fill="var(--card)"/></svg><span>Filters</span><i v-if="sport||arriving||city||radius||likes||country"/></button></header>
     <div class="discovery-scope"><button :aria-pressed="scope==='anywhere'" :class="{selected:scope==='anywhere'}" @click="selectScope('anywhere')">Anywhere</button><button :aria-pressed="scope==='city'" :class="{selected:scope==='city'}" @click="selectScope('city')">{{ session.profile.currentCity }}</button><button v-if="plus" :aria-pressed="likes" :class="{selected:likes}" @click="likes=!likes">Likes you</button></div>
     <Modal v-if="filtersOpen" label="Discovery filters" @close="filtersOpen=false"><h2 class="filter-title">Your kind of people</h2>
@@ -146,21 +150,13 @@ onBeforeUnmount(() => { active=false; window.removeEventListener("keydown", onKe
       </template>
     </div>
     <div v-else class="people-workspace">
-    <div class="discovery-stage" :aria-busy="busy">
-      <Transition name="profile-change" mode="out-in">
-      <ProfileCard :key="people[0].id" :person="people[0]" immersive portrait>
-        <template #actions>
-          <button class="decision pass" :disabled="busy" @click="swipe(false)" aria-label="Pass on this profile">Pass</button>
-          <button class="decision like" :disabled="busy" @click="swipe(true)" aria-label="Like this profile. You match if they like you back.">Like</button>
-        </template>
-      </ProfileCard>
-      </Transition>
-      <button class="profile-report" @click="safety=people[0]">Block or report</button>
-    </div>
-    <aside class="discovery-context" aria-label="Local sessions">
-      <RouterLink v-if="upcomingSession" to="/app/events" class="local-event"><span>{{ upcomingSession.title }}</span><time :datetime="upcomingSession.startsAt">{{ formatEventTime(upcomingSession.startsAt,upcomingSession.timezone).day }} · {{ upcomingSession.city }}</time><span class="session-action">View session</span></RouterLink>
-      <RouterLink v-else to="/app/events" class="sessions-link">Find a session in {{ session.profile.currentCity }}</RouterLink>
-    </aside>
+      <div class="discovery-stage" :aria-busy="busy">
+        <DiscoverCard :key="people[0].id" :person="people[0]" @report="safety=people[0]"/>
+      </div>
+      <div class="decision-dock" role="group" aria-label="Profile decision">
+        <button class="decision pass" :disabled="busy" @click="swipe(false)" aria-label="Pass on this profile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+        <button class="decision like" :disabled="busy" @click="swipe(true)" aria-label="Like this profile. You match if they like you back."><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg></button>
+      </div>
     </div>
 
     <Modal v-if="match" label="A new connection" @close="match=null">
@@ -213,3 +209,8 @@ onBeforeUnmount(() => { active=false; window.removeEventListener("keydown", onKe
 <style scoped>.discovery-hint{max-width:46ch;font-size:13px;line-height:1.7;color:var(--mute);margin:16px 0 22px}.reset-filters{display:block;min-height:44px;background:none;border:0;padding:8px 0;color:var(--green);font:600 13px var(--body);text-decoration:underline;cursor:pointer}</style>
 
 <style scoped>.request-reference{font-size:11px;color:var(--mute);overflow-wrap:anywhere;margin:8px 0 18px}</style>
+
+<style scoped>
+.discover-page.has-profile{height:var(--discover-height,calc(100dvh - 220px));display:flex;flex-direction:column;min-height:0}.has-profile .discover-top{flex:none;margin:0 0 8px}.has-profile .discover-heading{font-family:var(--editorial);font-weight:500;font-size:28px}.has-profile .discovery-scope{flex:none;margin-bottom:12px}.has-profile .discovery-scope button{padding:8px 0;min-height:38px}.has-profile .people-workspace{display:flex;flex-direction:column;flex:1;min-height:0;width:100%;max-width:520px;gap:12px}.has-profile .discovery-stage{flex:1;min-height:0}.decision-dock{flex:none;display:flex;align-items:center;justify-content:center;gap:24px;padding:0 0 4px}.decision-dock .decision{flex:none;width:56px;height:56px;min-height:56px;padding:0;border-radius:50%;box-shadow:none}.decision-dock .pass{background:#14261E;color:#fff;border:1px solid #ffffff26}.decision-dock .like{background:#F28B5B;color:#0D1B15;border:1px solid #F28B5B}
+@media(max-height:680px){.has-profile .discovery-scope{margin-bottom:8px}.has-profile .people-workspace{gap:8px}.has-profile .discover-top{margin-bottom:4px}.has-profile .discover-heading{font-size:25px}}
+</style>

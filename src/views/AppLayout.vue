@@ -141,3 +141,5 @@ watch(()=>session.user?.id,()=>{incoming.value=null;setUnreadAppBadge(0);alerts.
 <style scoped>
 .incoming-message{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:16px;right:16px;max-width:440px;margin:0 auto;z-index:60;display:flex;align-items:center;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:12px 16px}.incoming-message a{flex:1;text-decoration:none;font-weight:700}.incoming-message span{display:block;color:var(--mute);font-weight:400;font-size:12px;margin-top:4px}.incoming-message button{background:none;border:0;color:var(--ink);font-size:24px;min-width:44px;min-height:44px}
 </style>
+
+<style scoped>.body:has(:deep(.discover-page.has-profile)){padding-bottom:0}</style>
