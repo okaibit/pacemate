@@ -13,5 +13,5 @@ const initials = computed(() => (props.person?.name || "?").slice(0, 1).toUpperC
 </template>
 <style scoped>
 .av{border-radius:50%;object-fit:cover;flex:none;display:inline-block}
-.fallback{display:inline-grid;place-items:center;background:var(--green);color:var(--on);font-family:var(--display);font-weight:800}
+.fallback{display:inline-grid;place-items:center;background:var(--green);color:var(--on-green);font-family:var(--display);font-weight:800}
 </style>

@@ -141,7 +141,7 @@ async function submit() {
 .brand{display:inline-block;text-decoration:none;font:700 23px var(--display);letter-spacing:-.8px;margin-bottom:22px}
 .auth-sheet h1{font:600 32px/1.15 var(--display);letter-spacing:-.03em;margin:0 0 24px}
 .methods{display:grid;gap:12px}.method{display:flex;align-items:center;justify-content:center;position:relative;gap:12px;width:100%;min-height:48px;padding:12px 34px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:600 14px var(--body);cursor:pointer;text-decoration:none}
-.method>span{position:absolute;left:14px;font-size:18px}.google,.primary{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.method>span{position:absolute;left:14px;font-size:18px}.google,.primary{background:var(--cta);border-color:var(--cta);color:var(--on)}
 button:disabled{opacity:.5;cursor:not-allowed}.adult{display:flex;text-align:left;align-items:flex-start;gap:10px;font-size:12px;line-height:1.6;color:var(--mute);margin:0 0 24px}.adult input{flex:none;width:18px;height:18px;margin-top:2px;accent-color:var(--green)}.adult a{text-underline-offset:3px}
 .field{text-align:left;margin-bottom:18px}.field>span{font-size:12px}.field input{min-height:48px;font-size:16px;border-radius:12px;background:var(--bg);color:var(--ink)}
 .hint,.notice{font-size:12px;line-height:1.65;color:var(--mute);margin:0}.notice{margin:0 0 20px}.error{font-size:13px;line-height:1.6;color:var(--danger);margin:16px 0}

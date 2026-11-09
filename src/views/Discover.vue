@@ -187,7 +187,7 @@ onBeforeUnmount(() => { active=false; window.removeEventListener("keydown", onKe
 .people-workspace{max-width:820px;margin:0 auto}.discovery-stage{min-width:0}
 .decision{flex:1;min-width:0;min-height:46px;display:flex;align-items:center;justify-content:center;border-radius:12px;padding:11px 18px;font:600 13px var(--body);cursor:pointer;box-shadow:none;transition:none}
 .decision.pass{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
-.decision.like{background:var(--ink);color:var(--bg);border:1px solid var(--ink)}
+.decision.like{background:var(--cta);color:var(--on);border:1px solid var(--cta)}
 .decision:disabled{opacity:.5;cursor:wait}
 .profile-report{display:block;margin:8px auto 0;min-height:40px;padding:10px;border:0;background:none;color:var(--mute);font-size:11px;cursor:pointer}
 .discovery-context{border-top:1px solid var(--line);margin-top:4px;padding:16px 0}

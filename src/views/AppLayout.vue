@@ -70,8 +70,8 @@ watch(() => route.path, refresh);
 .tab{position:relative;flex:1;max-width:120px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 2px 10px;text-decoration:none;color:var(--mute);font-weight:700;font-size:12px}
 .ic{font-size:19px;line-height:1}
 .tab.router-link-active{color:var(--green);}
-.dot{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:12px;background:var(--coral);color:#0F2A22;font-size:11px;line-height:18px;text-align:center}
-.alerts{position:relative;font-size:24px;text-decoration:none;line-height:1}.alert-count{position:absolute;top:-6px;right:-12px;background:var(--coral);color:#0F2A22;border-radius:12px;font-size:10px;font-weight:800;padding:2px 5px}
+.dot{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:12px;background:var(--coral);color:var(--on);font-size:11px;line-height:18px;text-align:center}
+.alerts{position:relative;font-size:24px;text-decoration:none;line-height:1}.alert-count{position:absolute;top:-6px;right:-12px;background:var(--coral);color:var(--on);border-radius:12px;font-size:10px;font-weight:800;padding:2px 5px}
 </style>
 
 <style scoped>
@@ -108,7 +108,7 @@ watch(() => route.path, refresh);
 
 <style scoped>
 @media(max-width:1049px){
- .tabs{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));border:1px solid var(--line);border-radius:var(--radius-pill);padding:6px;gap:2px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(10px);box-shadow:var(--shadow-float);max-width:600px;margin:0 auto}
+ .tabs{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));border:1px solid var(--line);border-radius:var(--radius-pill);padding:6px;gap:2px;background:var(--nav-bg);backdrop-filter:blur(10px);box-shadow:var(--shadow-float);max-width:600px;margin:0 auto}
  .tab{max-width:none;min-width:0;min-height:58px;padding:8px 0;gap:3px;transition:none}
  .tab.router-link-active{border-radius:var(--radius-pill);background:var(--soft);box-shadow:none}
  .tab>span:not(.dot){font-size:11px}
