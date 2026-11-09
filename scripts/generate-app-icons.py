@@ -59,5 +59,7 @@ def render(size):
 if __name__ == '__main__':
     for name in ('app-icon.svg', 'favicon.svg'):
         (ROOT / 'public' / name).write_text(SVG)
+    mark = SVG.replace('viewBox="0 0 512 512"', 'viewBox="-2 -2 31 31"').replace('  <path fill="#102c23" d="M0 0h512v512H0z"/>\n', '').replace('translate(256 256) rotate(-20) scale(10) translate(-13.5 -13.5)', 'rotate(-20 13.5 13.5)')
+    (ROOT / 'public' / 'logo-mark.svg').write_text(mark)
     for size in (180, 192, 512):
         (ROOT / 'public' / f'icon-{size}.png').write_bytes(render(size))

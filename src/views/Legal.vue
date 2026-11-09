@@ -6,7 +6,7 @@ const UPDATED = "7 November 2026";
 </script>
 
 <template>
-  <div class="wrap"><nav class="top"><RouterLink to="/" class="logo">Pacemate</RouterLink></nav></div>
+  <div class="wrap"><nav class="top"><RouterLink to="/" class="logo brand-lockup"><img class="brand-mark" src="/logo-mark.svg" alt="" aria-hidden="true">Pacemate</RouterLink></nav></div>
   <main class="narrow legal">
     <template v-if="doc === 'privacy'">
       <h1>Privacy policy</h1>

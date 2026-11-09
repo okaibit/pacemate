@@ -1,6 +1,6 @@
 <template>
   <footer class="wrap foot">
-    <span><b>Pacemate</b> · Find someone who shares your pace.</span>
+    <span><b class="brand-lockup"><img class="brand-mark" src="/logo-mark.svg" alt="" aria-hidden="true">Pacemate</b> · Find someone who shares your pace.</span>
     <nav aria-label="Legal">
       <RouterLink to="/safety">Safety</RouterLink>
       <RouterLink to="/privacy">Privacy</RouterLink>

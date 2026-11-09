@@ -85,7 +85,7 @@ onMounted(async()=>{await load();if(route.query?.checkout)notice.value='Payments
 </script>
 <template>
  <div class="plus-page" :aria-busy="loading">
-  <header class="plus-hero"><img src="/images/hero.jpg" alt="Two runners sharing a run by the sea" class="hero-photo"><RouterLink class="hero-close" to="/app/profile" aria-label="Close Plus">×</RouterLink><div class="hero-copy"><p class="hero-brand">Pacemate <span>PLUS</span></p><h1>Better together.</h1><p>More connections. A shared pace.</p></div></header>
+  <header class="plus-hero"><img src="/images/hero.jpg" alt="Two runners sharing a run by the sea" class="hero-photo"><RouterLink class="hero-close" to="/app/profile" aria-label="Close Plus">×</RouterLink><div class="hero-copy"><p class="hero-brand"><img class="brand-mark" src="/logo-mark.svg" alt="" aria-hidden="true">Pacemate <span>PLUS</span></p><h1>Better together.</h1><p>More connections. A shared pace.</p></div></header>
   <p v-if="loading" role="status">Loading Plus…</p>
   <p v-if="error" class="err" role="alert">{{error}}</p>
   <button v-if="!loading&&!billing" type="button" class="btn ghost" @click="load">Try again</button>
@@ -139,3 +139,5 @@ onMounted(async()=>{await load();if(route.query?.checkout)notice.value='Payments
 </style>
 
 <style scoped>.test-membership{padding:24px;margin-bottom:24px;border:1px solid var(--line);border-radius:24px;background:var(--soft)}.test-membership p{font-size:13px;line-height:1.6;color:var(--mute)}.test-membership .row{flex-wrap:wrap;gap:12px}</style>
+
+<style scoped>.hero-brand{font-family:var(--display);font-weight:800;letter-spacing:-.04em}</style>

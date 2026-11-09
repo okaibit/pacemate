@@ -91,7 +91,7 @@ async function deleteAccount() {
       <button id="tips-tab" ref="tipsTab" type="button" role="tab" :aria-selected="activeTab==='tips'" :tabindex="activeTab==='tips'?0:-1" aria-controls="tips-panel" @click="activeTab='tips'" @keydown.left.prevent="activeTab='plus';$refs.plusTab.focus()" @keydown.right.prevent="activeTab='plus';$refs.plusTab.focus()">Profile tips</button>
     </div>
     <section v-if="activeTab==='plus'" id="plus-panel" role="tabpanel" aria-labelledby="plus-tab" tabindex="0" class="plus-panel">
-      <div class="plus-feature"><p class="plus-brand">Pacemate <span>PLUS</span></p><h2>More possibilities.</h2><RouterLink class="plus-action" to="/app/plus">Explore Plus <span aria-hidden="true">↗</span></RouterLink></div>
+      <div class="plus-feature"><p class="plus-brand"><img class="brand-mark" src="/logo-mark.svg" alt="" aria-hidden="true">Pacemate <span>PLUS</span></p><h2>More possibilities.</h2><RouterLink class="plus-action" to="/app/plus">Explore Plus <span aria-hidden="true">↗</span></RouterLink></div>
       <div class="benefit"><span class="benefit-number">01</span><div><h3>See who likes you</h3><p>A familiar spark. Make the next move.</p><RouterLink class="edit-link" to="/app/likes">View my likes</RouterLink></div></div>
       <div class="benefit"><span class="benefit-number">02</span><div><h3>Take your pace places</h3><p>Plan trips to up to five cities and meet people before you arrive.</p><RouterLink class="edit-link" to="/app/plus#travel-plans">Plan my trips</RouterLink></div></div>
       <p class="likes-note">Unlimited likes are included for everyone.</p>
@@ -206,3 +206,5 @@ async function deleteAccount() {
 @media(max-width:480px){.profile-heading{margin-bottom:22px}.profile-portrait{padding:24px 18px;gap:22px}.photo-deck{width:86px;height:118px}.portrait-heading h2{font-size:23px}.portrait-heading{gap:2px}.portrait-heading .edit-link{width:30px}.profile-city{font-size:12px;margin:6px 0 12px}.settings-link{font-size:0;gap:0;width:44px;justify-content:center}.profile-shortcuts>a,.profile-shortcuts>button{padding:16px 14px;font-size:12px}.plus-feature{padding:20px 22px}.plus-brand{margin-bottom:12px}.benefit{gap:16px}}
 @media(max-width:360px){.profile-portrait{gap:16px;padding:22px 14px}.photo-deck{width:70px;height:104px}.portrait-heading h2{font-size:20px}}
 </style>
+
+<style scoped>.plus-brand{font-family:var(--display);font-weight:800;letter-spacing:-.04em}</style>

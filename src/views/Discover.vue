@@ -135,7 +135,7 @@ onBeforeUnmount(() => { active=false; window.removeEventListener("keydown", onKe
     <p v-if="err" class="err" role="alert">{{ err }}</p><p v-if="err&&requestReference" class="request-reference">Reference: {{requestReference}}</p>
 
     <div v-if="loading && !people.length" class="discovery-loading" role="status" aria-live="polite" aria-busy="true">
-      <div class="loading-brand"><svg viewBox="0 0 32 36" aria-hidden="true"><path d="M6 31C-4 19 3 2 18 2c17 0 17 22 4 29-6 4-11 4-16 0Z" fill="currentColor"/></svg><strong>Pacemate</strong><span>Finding your people…</span></div>
+      <div class="loading-brand"><img class="loading-mark" src="/logo-mark.svg" alt="" aria-hidden="true"><strong>Pacemate</strong><span>Finding your people…</span></div>
       <div class="loading-card-lines" aria-hidden="true"><i></i><i></i></div>
     </div>
     <div v-else-if="!people.length" class="discovery-empty">
@@ -205,9 +205,9 @@ onBeforeUnmount(() => { active=false; window.removeEventListener("keydown", onKe
 </style>
 
 <style scoped>
-.discovery-loading{box-sizing:border-box;position:relative;display:flex;align-items:center;justify-content:center;min-height:380px;height:55vh;max-height:600px;max-width:520px;border:1px solid var(--line);border-radius:18px;background:var(--soft);overflow:hidden}.loading-brand{display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--ink)}.loading-brand svg{width:32px;height:36px;color:var(--green);animation:brand-breathe 2.4s ease-in-out infinite}.loading-brand strong{font:700 28px var(--display);letter-spacing:-1px}.loading-brand span{font-size:13px;color:var(--mute)}.loading-card-lines{position:absolute;bottom:28px;left:24px;right:24px;display:grid;gap:10px}.loading-card-lines i{display:block;height:10px;width:55%;border-radius:6px;background:var(--line)}.loading-card-lines i+i{width:35%}
+.discovery-loading{box-sizing:border-box;position:relative;display:flex;align-items:center;justify-content:center;min-height:380px;height:55vh;max-height:600px;max-width:520px;border:1px solid var(--line);border-radius:18px;background:var(--soft);overflow:hidden}.loading-brand{display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--ink)}.loading-brand .loading-mark{width:32px;height:36px;object-fit:contain;color:var(--green);animation:brand-breathe 2.4s ease-in-out infinite}.loading-brand strong{font:700 28px var(--display);letter-spacing:-1px}.loading-brand span{font-size:13px;color:var(--mute)}.loading-card-lines{position:absolute;bottom:28px;left:24px;right:24px;display:grid;gap:10px}.loading-card-lines i{display:block;height:10px;width:55%;border-radius:6px;background:var(--line)}.loading-card-lines i+i{width:35%}
 @keyframes brand-breathe{50%{opacity:.55}}
-@media(prefers-reduced-motion:reduce){.loading-brand svg{animation:none}}
+@media(prefers-reduced-motion:reduce){.loading-brand .loading-mark{animation:none}}
 </style>
 
 <style scoped>.discovery-hint{max-width:46ch;font-size:13px;line-height:1.7;color:var(--mute);margin:16px 0 22px}.reset-filters{display:block;min-height:44px;background:none;border:0;padding:8px 0;color:var(--green);font:600 13px var(--body);text-decoration:underline;cursor:pointer}</style>

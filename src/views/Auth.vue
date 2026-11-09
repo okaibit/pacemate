@@ -100,11 +100,11 @@ async function submit() {
 
 <template>
  <main class="auth-page">
-  <div class="auth-background" aria-hidden="true"><span>Pacemate</span><p>A shared pace.<br>A new beginning.</p></div>
+  <div class="auth-background" aria-hidden="true"><span class="brand-lockup"><img class="brand-mark" src="/logo-mark.svg" alt="" aria-hidden="true">Pacemate</span><p>A shared pace.<br>A new beginning.</p></div>
   <Modal :label="mode==='signup'?'Create your Pacemate account':'Log in to Pacemate'" plain flush @close="close">
    <section class="auth-sheet">
     <button type="button" class="close" :disabled="busy" aria-label="Close" @click="close">×</button>
-    <RouterLink class="brand" to="/">Pacemate</RouterLink>
+    <RouterLink class="brand brand-lockup" to="/"><img class="brand-mark" src="/logo-mark.svg" alt="" aria-hidden="true">Pacemate</RouterLink>
     <h1>{{ session.user&&session.profileError?'Reconnect to Pacemate.':needsAcknowledgement?'Before you continue.':done?(mode==='signup'?'Check your inbox.':'On its way.'):mode==='forgot'?'Reset your password':emailMethod?titles[mode]:mode==='signup'?'Get started.':'Welcome back.' }}</h1>
     <p v-if="session.notice" class="notice" role="alert">{{ session.notice }}</p>
     <div v-if="session.user&&session.profileError"><p class="error" role="alert">{{ session.profileError }}</p><button type="button" class="method" :disabled="busy" @click="retryProfile">Retry loading your profile</button></div>
@@ -149,3 +149,5 @@ button:disabled{opacity:.5;cursor:not-allowed}.adult{display:flex;text-align:lef
 .help-link{display:inline-block;min-height:44px;padding:14px 4px;font-size:12px;text-underline-offset:3px}.switch-mode{font-size:12px;color:var(--mute);margin:16px 0 0;line-height:1.7}.switch-mode a{color:var(--ink);text-underline-offset:3px}
 @media(max-width:480px){.auth-sheet{padding:40px 24px 26px}.auth-sheet h1{font-size:29px}.auth-background{padding:28px 20px}}
 </style>
+
+<style scoped>.brand{display:inline-flex;align-items:center;gap:8px}</style>

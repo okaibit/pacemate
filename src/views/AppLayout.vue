@@ -42,7 +42,7 @@ watch(() => route.path, refresh);
   <div class="shell" :class="{'in-chat':directChat}"><PushPrompt/>
     <header v-if="!directChat" class="hdr">
       <div class="narrow inner">
-        <RouterLink to="/app/discover" class="logo">Pacemate</RouterLink>
+        <RouterLink to="/app/discover" class="logo brand-lockup"><img class="brand-mark" src="/logo-mark.svg" alt="" aria-hidden="true">Pacemate</RouterLink>
         <div class="row"><RouterLink v-if="session.profile?.isAdmin" to="/app/admin" class="link small">Admin</RouterLink><RouterLink to="/app/notifications" class="alerts" :aria-label="`Notifications${alerts ? `, ${alerts} unread` : ''}`"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span v-if="alerts" class="alert-count">{{ alerts > 99 ? '99+' : alerts }}</span></RouterLink><RouterLink to="/app/profile" aria-label="Your profile"><Avatar :person="session.profile" :size="34" /></RouterLink></div>
       </div>
     </header>
@@ -77,7 +77,7 @@ watch(() => route.path, refresh);
 <style scoped>
 .shell{min-height:100vh;background:var(--bg);background-image:none}
 .hdr{background:color-mix(in srgb,var(--bg) 92%,transparent);border-bottom:0}
-.inner{height:80px}.logo{font-size:28px;letter-spacing:-1.2px;display:flex;align-items:center;gap:10px}.logo:before{content:'';display:block;width:27px;height:27px;background:var(--green);border-radius:12px;transform:none}
+.inner{height:80px}.logo{font-size:28px;letter-spacing:-1.2px;display:flex;align-items:center;gap:10px}
 .body{padding-top:22px}.ic{width:23px;height:23px}.tab{transition:none}.tab.router-link-active{background:var(--soft);border-radius:12px;color:var(--green)}
 .alerts{padding:9px;border:1px solid var(--line);border-radius:12px;display:flex}.hdr .row{gap:20px}
 @media(min-width:1050px){
@@ -92,7 +92,7 @@ watch(() => route.path, refresh);
 <style scoped>
 .shell{min-height:100vh;background:var(--bg);background-image:radial-gradient(ellipse at 95% 0%,#dfebcf66,transparent 45%)}
 .hdr{background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(18px);border-bottom:0}
-.inner{height:80px}.logo{font-size:28px;letter-spacing:-1.2px;display:flex;align-items:center;gap:10px}.logo:before{content:'';display:block;width:27px;height:27px;background:var(--green);border-radius:50% 50% 50% 8px;transform:rotate(-35deg)}
+.inner{height:80px}.logo{font-size:28px;letter-spacing:-1.2px;display:flex;align-items:center;gap:10px}
 .body{padding-top:22px}.ic{width:23px;height:23px}.tab{transition:background .18s,color .18s}.tab.router-link-active{box-shadow:none;background:var(--soft);border-radius:16px;color:var(--green)}
 .alerts{padding:9px;border:1px solid var(--line);border-radius:50%;display:flex}.hdr .row{gap:20px}
 @media(min-width:1050px){

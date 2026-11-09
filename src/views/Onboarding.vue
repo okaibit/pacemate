@@ -60,7 +60,7 @@ async function signOut(){if(locked.value)return;try{await logout();await router.
 </script>
 <template>
  <main class="onboarding">
-  <header class="brand"><RouterLink to="/">Pacemate</RouterLink><button type="button" class="text-button" :disabled="locked" @click="signOut">Log out</button></header>
+  <header class="brand"><RouterLink class="brand-lockup" to="/"><img class="brand-mark" src="/logo-mark.svg" alt="" aria-hidden="true">Pacemate</RouterLink><button type="button" class="text-button" :disabled="locked" @click="signOut">Log out</button></header>
   <div class="flow">
    <nav class="step-navigation" aria-label="Profile setup"><button type="button" class="text-button" :disabled="step===0||locked" @click="back">Back</button><span>Step {{ step+1 }} of {{ ONBOARDING_STEPS.length }}</span></nav>
    <progress :value="step+1" :max="ONBOARDING_STEPS.length" aria-label="Profile setup progress">{{ step+1 }} of {{ ONBOARDING_STEPS.length }}</progress>
