@@ -34,6 +34,14 @@ export async function disablePush(){
  if(sub){await api('/api/notifications/push',{method:'DELETE',body:{endpoint:sub.endpoint}});await sub.unsubscribe();}
  enabled.value=false;
 }
-export function noteMessage(){if(!keyRequest&&!configuredKey)keyRequest=api('/api/settings').then(s=>{configuredKey=s.pushKey||'';}).catch(()=>{}).finally(()=>{keyRequest=null;eligible.value=true;});else eligible.value=true;}
+export function noteMessage(){
+ if(configuredKey){eligible.value=true;return Promise.resolve();}
+ // Badge and inbox signals can arrive together. Never show Enable before the
+ // shared public-key request completes (iOS permission needs a ready tap).
+ if(keyRequest)return keyRequest;
+ eligible.value=false;
+ keyRequest=api('/api/settings').then(s=>{configuredKey=s.pushKey||'';eligible.value=!!configuredKey;}).catch(()=>{eligible.value=false;}).finally(()=>{keyRequest=null;});
+ return keyRequest;
+}
 export function usePush(){return {enabled,error,busy,supported,needsHomeScreen,showPrompt:computed(()=>eligible.value&&!dismissed.value&&!enabled.value&&(supported||needsHomeScreen)),dismiss:()=>{dismissed.value=true;},enable:async()=>{busy.value=true;error.value='';try{await enablePush();}catch(e){error.value=e.message;}finally{busy.value=false;}}};}
 authClient.onChange((event,user)=>{if(!user){enabled.value=false;eligible.value=false;dismissed.value=false;}else syncPush().catch(()=>{});});
