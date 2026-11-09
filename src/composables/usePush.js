@@ -5,6 +5,10 @@ import {api} from '../api.js';
 export const supported=!!(window.isSecureContext&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window);
 export const iosHomeHint=/iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
 export const needsHomeScreen=iosHomeHint&&!navigator.standalone&&!matchMedia('(display-mode: standalone)').matches;
+let promptOwner=null;
+const promptStorageKey=id=>'pacemate-push-prompt-seen:'+id;
+function restorePrompt(id){if(id===promptOwner)return;promptOwner=id;eligible.value=false;dismissed.value=false;error.value='';if(id)try{dismissed.value=window.localStorage?.getItem(promptStorageKey(id))==='1';}catch{}}
+export function markPromptShown(){if(promptOwner)try{window.localStorage?.setItem(promptStorageKey(promptOwner),'1');}catch{}}
 let configuredKey=import.meta.env.VITE_VAPID_PUBLIC_KEY||'',keyRequest;
 const enabled=ref(false),eligible=ref(false),dismissed=ref(false),error=ref(''),busy=ref(false);
 export async function pushRest(path,{method='GET',body}={}){
@@ -36,13 +40,15 @@ export async function disablePush(){
  enabled.value=false;
 }
 export function noteMessage(){
- if(configuredKey){eligible.value=true;return Promise.resolve();}
- // Badge and inbox signals can arrive together. Never show Enable before the
- // shared public-key request completes (iOS permission needs a ready tap).
  if(keyRequest)return keyRequest;
- eligible.value=false;
- keyRequest=api('/api/settings').then(s=>{configuredKey=s.pushKey||'';eligible.value=!!configuredKey;}).catch(()=>{eligible.value=false;}).finally(()=>{keyRequest=null;});
+ keyRequest=(async()=>{
+  const current=await authClient.getSession(),owner=current?.user?.id;
+  restorePrompt(owner||null);
+  if(!owner||dismissed.value)return;
+  if(!configuredKey){const settings=await api('/api/settings',{expectedUserId:owner});if(promptOwner!==owner)return;configuredKey=settings.pushKey||'';}
+  eligible.value=!!configuredKey;
+ })().catch(()=>{eligible.value=false;}).finally(()=>{keyRequest=null;});
  return keyRequest;
 }
-export function usePush(){return {enabled,error,busy,supported,needsHomeScreen,showPrompt:computed(()=>eligible.value&&!dismissed.value&&!enabled.value&&(supported||needsHomeScreen)),dismiss:()=>{dismissed.value=true;},enable:async()=>{busy.value=true;error.value='';try{await enablePush();}catch(e){error.value=e.message;}finally{busy.value=false;}}};}
-authClient.onChange((event,user)=>{if(!user){setUnreadAppBadge(0);enabled.value=false;eligible.value=false;dismissed.value=false;}else syncPush().catch(()=>{});});
+export function usePush(){return {enabled,error,busy,supported,needsHomeScreen,markShown:markPromptShown,showPrompt:computed(()=>eligible.value&&!dismissed.value&&!enabled.value&&(supported||needsHomeScreen)),dismiss:()=>{markPromptShown();dismissed.value=true;},enable:async()=>{markPromptShown();busy.value=true;error.value='';try{await enablePush();}catch(e){error.value=e.message;}finally{busy.value=false;}}};}
+authClient.onChange((event,user)=>{if(!user){restorePrompt(null);setUnreadAppBadge(0);enabled.value=false;eligible.value=false;dismissed.value=false;}else syncPush().catch(()=>{});});
