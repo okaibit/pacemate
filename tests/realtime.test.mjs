@@ -48,3 +48,14 @@ test('Postgres Changes subscriptions filter inserts and receipts by conversation
  socket.receive({topic:'realtime:match:12',event:'postgres_changes',payload:{data:{type:'UPDATE',record:{id:8,read_at:'now'}}}});assert.equal(changes,1);
  }finally{stop();}assert.equal(sockets.at(-1).sent.at(-1).event,'phx_leave');
 });
+
+test('app inbox uses authenticated Postgres Changes without relying on Broadcast policies',async()=>{
+ let changes=0;
+ const stop=subscribe('inbox:member',()=>changes++,()=>{},[{event:'INSERT',schema:'public',table:'messages'}],undefined,{postgresOnly:true});
+ try{
+  await Promise.resolve();await Promise.resolve();const socket=sockets.at(-1);socket.open();const join=socket.sent[0];
+  assert.equal(join.payload.config.private,false);assert.ok(join.payload.access_token);
+  socket.receive({topic:join.topic,event:'broadcast',payload:{event:'changed'}});assert.equal(changes,0);
+  socket.receive({topic:join.topic,event:'postgres_changes',payload:{data:{type:'INSERT',record:{id:9}}}});assert.equal(changes,1);
+ }finally{stop();}
+});

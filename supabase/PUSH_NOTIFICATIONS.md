@@ -1,6 +1,6 @@
 # Current message and match notifications
 
-The PaceMate match-chat flow now sends Web Push immediately in an EdgeRuntime background task after a message or mutual match commits. It reuses the existing notifications outbox and delivery states. No new SQL, Database Webhook or external notification provider is required for this path.
+All new text, link and photo messages use the authenticated message API, which queues delivery after commit. Previously, plain text/link inserts went directly through REST and bypassed that queue. The PaceMate match-chat flow now sends Web Push immediately in an EdgeRuntime background task after a message or mutual match commits. It reuses the existing notifications outbox and delivery states. No new SQL, Database Webhook or external notification provider is required for this path.
 
 Subscriptions are registered through authenticated /api/notifications/push, which saves the device and sets notification_settings.push_enabled. Subscription status and removal are owner-scoped. A known endpoint cannot be reassigned to another user. Free and Plus members have the same notification access.
 
@@ -19,6 +19,10 @@ VAPID_SUBJECT=mailto:trypacemate@gmail.com node scripts/setup-push-secrets.mjs c
 This uploads VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT through a temporary restricted file that is removed afterwards. Only the public key may be printed. No frontend variable is required: /api/settings supplies the public key. Deploy pacemate and publish the frontend using the established preview workflow.
 
 Open Profile > Settings > Message and match notifications > Enable. Permission is requested only after a tap. On iPhone/iPad, first add PaceMate to the Home Screen and launch it there (iOS/iPadOS 16.4+). OS notification permissions and Focus settings control whether alerts are shown.
+
+Use Settings > Notifications > Send test notification to check the OS delivery path. The authenticated, rate-limited endpoint sends only to the signed-in account’s saved devices. Provider acceptance does not prove the OS displayed the alert.
+
+The foreground app listens to authenticated Postgres Changes on messages using existing row-level membership policies. It re-fetches the owner-scoped inbox and badges; it does not trust Broadcast payloads on this channel. Polling remains a five-second fallback. Acknowledging a message clears its matching inbox alert, and the currently open conversation does not show a duplicate in-app banner.
 
 Verify on two real phones/accounts: enable, background the recipient app, send a message, confirm lock-screen delivery and open the conversation from it. Test a new mutual match, permission denial, disabling this device, blocked/unmatched pairs and logout. A physical-device delivery has not been verified by automated tests.
 

@@ -31,16 +31,17 @@ export async function deliverPushNotification(n:any){
  webpush.setVapidDetails(Deno.env.get('VAPID_SUBJECT')||'mailto:trypacemate@gmail.com',publicKey,privateKey);
  const title=n.kind==='message'?'New message':n.kind==='match'?'You have a new match':n.title;
  const body=n.kind==='message'?'Open Pacemate to read your message.':n.kind==='match'?'Open Pacemate to say hello.':n.body;
- let failed=false;
+ let failed=false,accepted=0;
  await Promise.all(valid.map(async s=>{
   try{
    const details=webpush.generateRequestDetails({endpoint:s.endpoint,keys:{p256dh:s.p256dh,auth:s.auth}},JSON.stringify({title,body,href:internalHref(n.href),tag:`pacemate-${n.id}`}),{TTL:3600});
    const response=await fetch(details.endpoint,{method:details.method,headers:Object.fromEntries(Object.entries(details.headers).map(([k,v])=>[k,String(v)])),body:details.body?new Uint8Array(details.body).buffer:undefined,signal:AbortSignal.timeout(10000)});
    if(!response.ok)throw Object.assign(new Error('Push delivery failed'),{statusCode:response.status});
+   accepted++;
   }catch(error){if([404,410].includes(error.statusCode))await rows('DELETE FROM public.push_subscriptions WHERE id=$1',[s.id]);else failed=true;}
  }));
  if(failed)throw new Error('PUSH_DELIVERY_FAILED');
- return 'sent';
+ return accepted?'sent':'skipped';
 }
 export async function dispatchSocialPush(dedupe:string){
  if(!Deno.env.get('VAPID_PUBLIC_KEY')||!Deno.env.get('VAPID_PRIVATE_KEY'))return;

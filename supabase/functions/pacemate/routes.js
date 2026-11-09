@@ -7,7 +7,7 @@ const routes = [
   ["verification", /^\/api\/verification$/, []],
   ["export", /^\/api\/export$/, []],
   ["settings", /^\/api\/settings(?:\/(blocks)(?:\/([^/]+))?)?$/, ["section","id"]],
-  ["notifications", /^\/api\/notifications(?:\/(push|unsubscribe))?$/, ["action"]],
+  ["notifications", /^\/api\/notifications(?:\/(push|test|unsubscribe))?$/, ["action"]],
   ["billing", /^\/api\/billing(?:\/(config|checkout|portal|webhook|preferences|history|cancel|sync|test-access))?$/, ["action"]],
   ["tasks", /^\/api\/tasks\/dispatch$/, []],
   ["trips", /^\/api\/trips(?:\/(arrive|dismiss|primary))?$/, ["action"]],

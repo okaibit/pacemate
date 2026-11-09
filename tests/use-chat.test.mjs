@@ -8,7 +8,12 @@ const compiled=await rolldown({input:'src/composables/useChat.js',plugins:[{name
 const output=await compiled.generate({format:'esm'});await compiled.close();const {useChat}=await import('data:text/javascript;base64,'+Buffer.from(output.output[0].code).toString('base64'));
 let originalFetch;
 const waitFor=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(resolve=>setTimeout(resolve,5));}assert.fail('Chat operation did not settle');};
-test.beforeEach(()=>{requests=[];records=[];stopHandler=null;failAfterInsert=false;globalThis.__chatFixture.user={id:'me'};globalThis.__chatFixture.disposed=false;originalFetch=globalThis.fetch;
+test.beforeEach(()=>{requests=[];records=[];stopHandler=null;failAfterInsert=false;globalThis.__chatFixture.user={id:'me'};globalThis.__chatFixture.disposed=false;globalThis.__chatFixture.api=async(path,options)=>{
+ if(path.endsWith('/messages')&&options?.method==='POST'){
+  const {body,clientId}=options.body;const row={id:100,sender_id:'me',body,client_id:clientId,created_at:new Date().toISOString(),status:'sent'};records.push(row);
+  requests.push({api:true,path,method:'POST'});if(failAfterInsert){failAfterInsert=false;throw Error('Response lost');}
+  return {message:{id:row.id,body,createdAt:row.created_at}};
+ }return {other:{id:'other',name:'Alex'}};};originalFetch=globalThis.fetch;
  globalThis.fetch=async(url,options)=>{
   const u=new URL(url),table=u.pathname.split('/').at(-1),method=options.method;requests.push({url:u,method,body:options.body&&JSON.parse(options.body)});
   if(table==='conversations')return Response.json([{id:12}]);
@@ -32,7 +37,7 @@ test('initial page requests latest 30; older page uses a strict ID cursor',async
 test('send renders before network completion and reconciles a lost insert response once',async()=>{
  const chat=useChat(12);await waitFor(()=>chat.ready.value&&!chat.loading.value);failAfterInsert=true;
  assert.equal(chat.send('Hello there'),true);assert.equal(chat.messages.value.length,1);assert.equal(chat.messages.value[0].status,'sending');
- await waitFor(()=>chat.messages.value[0]?.status==='sent');assert.equal(chat.messages.value.length,1);assert.equal(records.length,1);
+ await waitFor(()=>chat.messages.value[0]?.status==='sent');assert.equal(chat.messages.value.length,1);assert.equal(records.length,1);assert.ok(requests.some(r=>r.api&&r.path==='/api/matches/12/messages'));assert.ok(!requests.some(r=>!r.api&&r.method==='POST'));
 });
 test('hidden chats do not send read acknowledgements; visible receipt updates only incoming IDs',async()=>{
  records=[{id:1,sender_id:'other',body:'hello',created_at:new Date().toISOString()},{id:2,sender_id:'me',body:'hi',created_at:new Date().toISOString()}];

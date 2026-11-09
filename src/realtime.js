@@ -2,7 +2,7 @@ import {authClient,SUPABASE_URL,PUBLISHABLE_KEY} from './supabase.js';
 
 // Private Broadcast channels carry change signals; all message contents and
 // signed images are retrieved through the API's membership checks.
-export function subscribe(topic,onChange,onState=()=>{},postgresChanges,presence) {
+export function subscribe(topic,onChange,onState=()=>{},postgresChanges,presence,{postgresOnly=false}={}) {
   let socket,timer,retry,joinTimer,stopped=false,attempt=0,ref=0,joined=false;
   const channel='realtime:'+topic;
   const send=(event,payload={},target=channel)=>{
@@ -20,7 +20,7 @@ export function subscribe(topic,onChange,onState=()=>{},postgresChanges,presence
       ref=0;
       socket=new WebSocket(SUPABASE_URL.replace(/^http/,'ws')+'/realtime/v1/websocket?apikey='+encodeURIComponent(PUBLISHABLE_KEY)+'&vsn=1.0.0');
       socket.onopen=()=>{
-        send('phx_join',{config:{broadcast:{ack:false,self:false},presence:presence?{enabled:true,key:presence.key}:{enabled:false},private:true,...(postgresChanges?{postgres_changes:postgresChanges}:{})},access_token:session.access_token});
+        send('phx_join',{config:{broadcast:{ack:false,self:false},presence:presence?{enabled:true,key:presence.key}:{enabled:false},private:!postgresOnly,...(postgresChanges?{postgres_changes:postgresChanges}:{})},access_token:session.access_token});
         joinTimer=setTimeout(()=>socket?.close(),10000);
         timer=setInterval(()=>send('heartbeat',{},'phoenix'),25000);
       };
@@ -31,7 +31,7 @@ export function subscribe(topic,onChange,onState=()=>{},postgresChanges,presence
           clearTimeout(joinTimer);
           if(message.payload.status==='ok'){joined=true;attempt=0;onState(true);onChange();if(presence)send('presence',{type:'presence',event:'track',payload:presence.state()});}else socket.close();
         }
-        if(message.event==='broadcast'&&message.payload?.event==='changed')onChange();
+        if(!postgresOnly&&message.event==='broadcast'&&message.payload?.event==='changed')onChange();
         if(message.event==='postgres_changes')onChange(message.payload?.data);
         if(['phx_close','phx_error'].includes(message.event))socket.close();
       };

@@ -32,6 +32,9 @@ export default handle(async(req,ctx)=>{
     await rateLimit(user.id,'message',30);
     const b=await body(req),text=str(b.body,2000,'Message'),attachmentId=b.attachmentId||null;
     const clientId=b.clientId||null;
+    const candidate=text.match(/https?:\/\/[^\s<>]+/i)?.[0]?.replace(/[.,!?)]+$/,'');
+    let linkUrl=null;try{const link=new URL(candidate);if(['http:','https:'].includes(link.protocol)&&!link.username&&!link.password)linkUrl=link.href;}catch{}
+    const type=attachmentId?'image':linkUrl?'link':'text';
     if(clientId&&(typeof clientId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId)))throw new HttpError(422,'Invalid message identity.');
     if(!text&&!attachmentId)throw new HttpError(422,'Write a message or choose a photo.');
     const [message]=await transaction(async tx=>{
@@ -49,8 +52,8 @@ export default handle(async(req,ctx)=>{
         if(!attachment.length)throw new HttpError(422,'This photo is not available. Upload it again.');
       }
       return clientId
-        ?tx.unsafe('INSERT INTO public.messages(match_id,sender_id,body,attachment_id,client_id) VALUES($1,$2,$3,$4,$5) RETURNING *',[id,user.id,text,attachmentId,clientId])
-        :tx.unsafe('INSERT INTO public.messages(match_id,sender_id,body,attachment_id) VALUES($1,$2,$3,$4) RETURNING *',[id,user.id,text,attachmentId]);
+        ?tx.unsafe('INSERT INTO public.messages(match_id,sender_id,body,attachment_id,client_id,type,link_url) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',[id,user.id,text,attachmentId,clientId,type,linkUrl])
+        :tx.unsafe('INSERT INTO public.messages(match_id,sender_id,body,attachment_id,type,link_url) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[id,user.id,text,attachmentId,type,linkUrl]);
     });
     queueSocialPush(`message:${message.id}`);
     let imageUrl=null;

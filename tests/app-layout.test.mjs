@@ -16,6 +16,7 @@ test('signed-in app renders the routed page within navigation, not a standalone 
   if(id.endsWith('.vue'))return '\0component:'+id;
   if(id==='../auth.js')return '\0auth';
   if(id==='../api.js')return '\0api';
+  if(id==='../realtime.js')return '\0realtime';
   if(id==='../notification-poll.js')return fileURLToPath(new URL('../src/notification-poll.js',import.meta.url));
   if(id.endsWith('/server/validation.js'))return fileURLToPath(new URL('../supabase/functions/pacemate/server/validation.js',import.meta.url));
   if(id==='../composables/usePush.js')return '\0push';
@@ -23,6 +24,7 @@ test('signed-in app renders the routed page within navigation, not a standalone 
   if(id==='\0layout')return script;
   if(id==='\0route')return `export const useRoute=()=>({path:'/app/discover',meta:{}});`;
   if(id==='\0auth')return `export const session={profile:{name:'Alex',isAdmin:false,suspended:false}};`;
+  if(id==='\0realtime')return 'export const subscribe=()=>()=>{};';
   if(id==='\0api')return `export const api=async()=>({unread:0});`;
   if(id==='\0push')return 'export const noteMessage=()=>{};';
   if(id.startsWith('\0component:'))return 'export default {render:()=>null};';

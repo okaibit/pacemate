@@ -7,6 +7,7 @@ import PushPrompt from '../components/PushPrompt.vue';
 import {noteMessage} from '../composables/usePush.js';
 import ArrivalPrompt from "../components/ArrivalPrompt.vue";
 import Avatar from "../components/Avatar.vue";
+import {subscribe} from "../realtime.js";
 import {notificationPoll} from "../notification-poll.js";
 import {internalHref} from "../../supabase/functions/pacemate/server/validation.js";
 
@@ -31,7 +32,11 @@ const windowWidth = ref(typeof window === "undefined" ? 1050 : window.innerWidth
 function resize(){windowWidth.value=window.innerWidth;}
 onMounted(()=>window.addEventListener("resize",resize));
 onBeforeUnmount(()=>window.removeEventListener("resize",resize));
-let timer,bannerTimer;
+let timer,bannerTimer,stopLive;
+function connectLive(){stopLive?.();const owner=session.user?.id;if(!owner)return;
+ stopLive=subscribe(`inbox:${owner}`,()=>{if(session.user?.id===owner)refresh();},()=>{},
+ [{event:'INSERT',schema:'public',table:'messages'},{event:'UPDATE',schema:'public',table:'messages'}],undefined,{postgresOnly:true});
+}
 const incoming=ref(null);
 const poll=notificationPoll({request:api,currentUser:()=>session.user?.id,
  visible:()=>document.visibilityState==='visible',currentPath:()=>route.path,
@@ -40,10 +45,10 @@ const poll=notificationPoll({request:api,currentUser:()=>session.user?.id,
  onMessage:item=>{incoming.value=item;clearTimeout(bannerTimer);bannerTimer=setTimeout(()=>incoming.value=null,6000);}
 });
 const refresh=()=>poll.refresh();
-onMounted(() => { refresh(); timer = setInterval(refresh, 5000); document.addEventListener("visibilitychange", refresh); window.addEventListener('focus',refresh); });
-onBeforeUnmount(() => { poll.stop();clearInterval(timer);clearTimeout(bannerTimer);document.removeEventListener("visibilitychange", refresh);window.removeEventListener('focus',refresh); });
+onMounted(() => { refresh(); connectLive();timer = setInterval(refresh, 5000); document.addEventListener("visibilitychange", refresh); window.addEventListener('focus',refresh); });
+onBeforeUnmount(() => { stopLive?.();poll.stop();clearInterval(timer);clearTimeout(bannerTimer);document.removeEventListener("visibilitychange", refresh);window.removeEventListener('focus',refresh); });
 watch(() => route.path,()=>{incoming.value=null;refresh();});
-watch(()=>session.user?.id,()=>{incoming.value=null;alerts.value=0;badges.value={unread:0,likesYou:0};refresh();});
+watch(()=>session.user?.id,()=>{incoming.value=null;alerts.value=0;badges.value={unread:0,likesYou:0};connectLive();refresh();});
 </script>
 <template>
   <div class="shell" :class="{'in-chat':directChat}"><PushPrompt/>

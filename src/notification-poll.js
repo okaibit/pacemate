@@ -1,8 +1,9 @@
 // Keep inbox updates independent from other badges and discard stale account responses.
 export function notificationPoll({request,currentUser,visible,onBadges,onInbox,onMessage,currentPath}) {
- let busy=false,stopped=false,owner=null,seen=new Set(),initialized=false;
+ let busy=false,again=false,stopped=false,owner=null,seen=new Set(),initialized=false;
  async function refresh(){
-  if(stopped||!visible()||busy)return;
+  if(stopped||!visible())return;
+  if(busy){again=true;return;}
   const user=currentUser();if(!user)return;
   if(owner!==user){owner=user;seen=new Set();initialized=false;}
   busy=true;
@@ -20,7 +21,7 @@ export function notificationPoll({request,currentUser,visible,onBadges,onInbox,o
     if(seen.size>500)seen=new Set(items.map(item=>item.id));
     onInbox(data);
    })
-  ]);}finally{busy=false;}
+  ]);}finally{busy=false;if(again&&!stopped){again=false;refresh();}}
  }
  return {refresh,stop(){stopped=true;seen.clear();}};
 }

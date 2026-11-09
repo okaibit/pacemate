@@ -1,4 +1,5 @@
 import {handle,json,requireProfile,body,HttpError} from '../server/http.ts';
+import {deliverPushNotification} from '../server/push-delivery.ts';
 import {rows,rateLimit} from '../server/feature-db.ts';
 import {validPushSubscription} from '../server/validation.js';
 
@@ -12,6 +13,15 @@ export default handle(async(req,ctx)=>{
     return json({ok:true});
   }
   const {user}=await requireProfile(req);
+  if(action==='test'){
+    if(req.method!=='POST')throw new HttpError(405,'Method not allowed');
+    await rateLimit(user.id,'push-test',3,60);
+    const [settings]=await rows('SELECT push_enabled FROM public.notification_settings WHERE user_id=$1',[user.id]);
+    if(!settings?.push_enabled)throw new HttpError(409,'Enable notifications on this device first.');
+    let state;try{state=await deliverPushNotification({id:'test-'+crypto.randomUUID(),user_id:user.id,kind:'test',push_enabled:true,title:'Pacemate notification test',body:'Message and match alerts can reach this device.',href:'/app/notifications'});}catch{throw new HttpError(503,'The push service could not accept this test. Try again.');}
+    if(state!=='sent')throw new HttpError(409,state==='unconfigured'?'Push delivery is not configured.':'No active push subscription. Enable notifications again.');
+    return json({ok:true});
+  }
   if(action==='push'){
     if(req.method==='GET'){
       const endpoint=new URL(req.url).searchParams.get('endpoint');
@@ -46,7 +56,11 @@ export default handle(async(req,ctx)=>{
   }
   if(req.method==='PUT'){
     const b=await body(req);
-    if(b.all===true)await rows('UPDATE public.notifications SET read_at=now() WHERE user_id=$1 AND read_at IS NULL',[user.id]);
+    if(Number.isSafeInteger(b.matchId)&&b.matchId>0){
+      await rows(`UPDATE public.notifications n SET read_at=now() WHERE n.user_id=$1 AND n.kind='message' AND n.href=$2 AND n.read_at IS NULL
+        AND EXISTS(SELECT 1 FROM public.messages m WHERE n.dedupe_key='message:'||m.id AND m.match_id=$3 AND m.sender_id<>$1 AND m.read_at IS NOT NULL)`,[user.id,'/app/matches/'+b.matchId,b.matchId]);
+    }
+    else if(b.all===true)await rows('UPDATE public.notifications SET read_at=now() WHERE user_id=$1 AND read_at IS NULL',[user.id]);
     else if(Number.isSafeInteger(Number(b.id)))await rows('UPDATE public.notifications SET read_at=now() WHERE id=$1 AND user_id=$2',[Number(b.id),user.id]);
     else throw new HttpError(422,'Choose a notification.');
     return json({ok:true});
