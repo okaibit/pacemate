@@ -135,7 +135,7 @@ onBeforeUnmount(() => { active=false; window.removeEventListener("keydown", onKe
     <p v-if="err" class="err" role="alert">{{ err }}</p><p v-if="err&&requestReference" class="request-reference">Reference: {{requestReference}}</p>
 
     <div v-if="loading && !people.length" class="discovery-loading" role="status" aria-live="polite" aria-busy="true">
-      <div class="loading-brand"><img class="loading-mark" src="/logo-mark.svg" alt="" aria-hidden="true"><strong>Pacemate</strong><span>Finding your people…</span></div>
+      <div class="loading-brand"><img class="loading-mark" src="/logo-mark.svg" alt="" aria-hidden="true"><span>Finding your people…</span></div>
       <div class="loading-card-lines" aria-hidden="true"><i></i><i></i></div>
     </div>
     <div v-else-if="!people.length" class="discovery-empty">
@@ -205,8 +205,8 @@ onBeforeUnmount(() => { active=false; window.removeEventListener("keydown", onKe
 </style>
 
 <style scoped>
-.discovery-loading{box-sizing:border-box;position:relative;display:flex;align-items:center;justify-content:center;min-height:380px;height:55vh;max-height:600px;max-width:520px;border:1px solid var(--line);border-radius:18px;background:var(--soft);overflow:hidden}.loading-brand{display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--ink)}.loading-brand .loading-mark{width:32px;height:36px;object-fit:contain;color:var(--green);animation:brand-breathe 2.4s ease-in-out infinite}.loading-brand strong{font:700 28px var(--display);letter-spacing:-1px}.loading-brand span{font-size:13px;color:var(--mute)}.loading-card-lines{position:absolute;bottom:28px;left:24px;right:24px;display:grid;gap:10px}.loading-card-lines i{display:block;height:10px;width:55%;border-radius:6px;background:var(--line)}.loading-card-lines i+i{width:35%}
-@keyframes brand-breathe{50%{opacity:.55}}
+.discovery-loading{box-sizing:border-box;position:relative;display:flex;align-items:center;justify-content:center;min-height:380px;height:55vh;max-height:600px;max-width:520px;border:1px solid var(--line);border-radius:18px;background:var(--soft);overflow:hidden}.loading-brand{display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--ink)}.loading-brand .loading-mark{width:32px;height:36px;object-fit:contain;color:var(--green);animation:brand-roll 2.4s linear infinite}.loading-brand span{font-size:13px;color:var(--mute)}.loading-card-lines{position:absolute;bottom:28px;left:24px;right:24px;display:grid;gap:10px}.loading-card-lines i{display:block;height:10px;width:55%;border-radius:6px;background:var(--line)}.loading-card-lines i+i{width:35%}
+@keyframes brand-roll{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.loading-brand .loading-mark{animation:none}}
 </style>
 
