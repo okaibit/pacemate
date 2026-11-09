@@ -4,7 +4,7 @@ import {rolldown} from 'rolldown';
 const state=globalThis.__profileLoading={pending:[],listener:null,callbackError:false};
 const compiled=await rolldown({input:'src/auth.js',plugins:[{name:'profile-fixtures',resolveId(id){if(['vue','./supabase.js','./api.js','./pwa.js'].includes(id))return '\0profile:'+id;},load(id){
  if(id==='\0profile:vue')return 'export const reactive=value=>value;';
- if(id==='\0profile:./supabase.js')return `export const authClient={handleCallback:async()=>{if(globalThis.__profileLoading.callbackError)throw new Error("Sign-in callback rejected. Start sign-in again in this browser.");return null;},getUser:async()=>null,onChange:fn=>{globalThis.__profileLoading.listener=fn;}};`;
+ if(id==='\0profile:./supabase.js')return `export const authClient={handleCallback:async()=>{if(globalThis.__profileLoading.callbackError)throw new Error("Sign-in callback rejected. Start sign-in again in this browser.");return null;},getUser:async()=>{if(globalThis.__profileLoading.verificationError)throw new Error("Offline");return null;},peekSession:()=>globalThis.__profileLoading.cachedSession,onChange:fn=>{globalThis.__profileLoading.listener=fn;}};`;
  if(id==='\0profile:./api.js')return `export const api=()=>new Promise((resolve,reject)=>globalThis.__profileLoading.pending.push({resolve,reject}));`;
  if(id==='\0profile:./pwa.js')return 'export const disablePush=async()=>{};';
 }}]});
@@ -34,4 +34,10 @@ test('callback rejection routes to Auth, removes the callback URL and exposes th
   await initAuth();
   assert.equal(session.callback,'error');assert.deepEqual(paths,['/login']);assert.match(session.notice,/callback rejected/);assert.equal(session.ready,true);
  } finally {globalThis.window=originalWindow;state.callbackError=false;}
+});
+
+test('temporary startup verification failure preserves the saved identity and offers reconnect',async()=>{
+ session.user=null;session.callback=null;state.verificationError=true;state.cachedSession={user:{id:'saved-member'}};
+ try{await initAuth();assert.equal(session.user.id,'saved-member');assert.match(session.profileError,/sign-in is saved/);assert.equal(session.ready,true);}
+ finally{state.verificationError=false;delete state.cachedSession;}
 });

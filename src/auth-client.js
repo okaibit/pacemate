@@ -1,6 +1,6 @@
 // Supabase Auth's HTTP API keeps authentication independent of the hosting provider.
 // Sessions are persisted; callback transactions use per-tab sessionStorage. Passwords are never stored.
-export function createAuthClient({ url, key, storage, transactionStorage = storage, fetcher = fetch, location }) {
+export function createAuthClient({ url, key, storage, transactionStorage = storage, fetcher = fetch, location, locks = globalThis.navigator?.locks }) {
   const storageKey = `pacemate-auth:${url}`;
   const transactionKey = `${storageKey}:transaction`;
   const random = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, "0")).join("");
@@ -42,23 +42,28 @@ export function createAuthClient({ url, key, storage, transactionStorage = stora
     if (!data.access_token || !data.refresh_token || !data.user?.id) throw new Error("Supabase returned an incomplete session.");
     return persist({ access_token: data.access_token, refresh_token: data.refresh_token, expires_at: Number(data.expires_at) || Math.floor(Date.now() / 1000) + Number(data.expires_in || 3600), user: data.user }, event);
   };
-  async function getSession() {
+  async function getSession({ force = false, expectedAccessToken } = {}) {
     const current = read();
     if (!current?.access_token) return null;
-    if (current.expires_at > Date.now() / 1000 + 60) return current;
-    if (!refreshing) refreshing = request("/token?grant_type=refresh_token", { body: { refresh_token: current.refresh_token } })
-      .then(data => {
-        // A logout, new login, or another tab may have replaced this session
-        // while the refresh was in flight. Never resurrect or overwrite it.
+    if (expectedAccessToken && current.access_token !== expectedAccessToken) return getSession();
+    if (!force && current.expires_at > Date.now() / 1000 + 60) return current;
+    if (!refreshing) {
+      const refresh = async () => {
+        // Another tab may have refreshed while this tab waited for the lock.
         const latest = read();
-        if (!latest || latest.refresh_token !== current.refresh_token) return latest;
-        return saveTokens(data, "TOKEN_REFRESHED");
-      })
-      .catch(error => {
-        if ([400, 401, 403].includes(error.status) && read()?.refresh_token === current.refresh_token) persist(null, "SIGNED_OUT");
-        throw error;
-      })
-      .finally(() => { refreshing = null; });
+        if (!latest || latest.refresh_token !== current.refresh_token || latest.access_token !== current.access_token) return latest;
+        try {
+          const data = await request("/token?grant_type=refresh_token", { body: { refresh_token: current.refresh_token } });
+          const saved = read();
+          if (!saved || saved.refresh_token !== current.refresh_token) return saved;
+          return saveTokens(data, "TOKEN_REFRESHED");
+        } catch (error) {
+          if ([400, 401, 403].includes(error.status) && read()?.refresh_token === current.refresh_token) persist(null, "SIGNED_OUT");
+          throw error;
+        }
+      };
+      refreshing = (locks?.request ? locks.request(storageKey + ':refresh', refresh) : refresh()).finally(() => { refreshing = null; });
+    }
     return refreshing;
   }
   async function handleCallback() {
@@ -88,6 +93,8 @@ export function createAuthClient({ url, key, storage, transactionStorage = stora
   }
   return {
     storageKey, getSession, handleCallback,
+    peekSession: read,
+    refreshSession: accessToken => getSession({force:true,expectedAccessToken:accessToken}),
     clear() { transactionStorage.removeItem(transactionKey); persist(null, "SIGNED_OUT"); },
     onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     sync() { emit(read() ? "SIGNED_IN" : "SIGNED_OUT", read()); },
@@ -95,7 +102,19 @@ export function createAuthClient({ url, key, storage, transactionStorage = stora
       const value = await getSession();
       if (!value) return null;
       try { return await request("/user", { method: "GET", token: value.access_token }); }
-      catch (error) { if ([401, 403].includes(error.status)) { persist(null, "SIGNED_OUT"); return null; } throw error; }
+      catch (error) {
+        if (![401, 403].includes(error.status)) throw error;
+        const refreshed = await getSession({force:true,expectedAccessToken:value.access_token});
+        if (!refreshed) return null;
+        try { return await request("/user", {method:"GET",token:refreshed.access_token}); }
+        catch (retryError) {
+          if ([401,403].includes(retryError.status)) {
+            if(read()?.access_token===refreshed.access_token)persist(null,"SIGNED_OUT");
+            return null;
+          }
+          throw retryError;
+        }
+      }
     },
     async login(email, password) { const data = await request("/token?grant_type=password", { body: { email, password } }); saveTokens(data, "SIGNED_IN"); return data.user; },
     async signup(email, password) {

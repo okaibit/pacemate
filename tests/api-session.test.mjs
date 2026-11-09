@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {rolldown} from 'rolldown';
+const f=globalThis.__apiSession={};
+const bundle=await rolldown({input:'src/api.js',plugins:[{name:'session-fixture',resolveId(id){if(id==='./supabase.js')return '\0auth';},load(id){if(id==='\0auth')return 'export const SUPABASE_URL="https://test.supabase.co",API_URL="https://test.supabase.co/functions/v1/pacemate",PUBLISHABLE_KEY="public";export const authClient={getSession:async()=>globalThis.__apiSession.session,refreshSession:async token=>globalThis.__apiSession.refresh(token),clear(){throw Error("Must not clear a login based on an API response");}};';}}]});
+const output=await bundle.generate({format:'esm',codeSplitting:false});await bundle.close();
+const {api}=await import('data:text/javascript;base64,'+Buffer.from(output.output[0].code).toString('base64'));
+const fetchBefore=globalThis.fetch;
+test.beforeEach(()=>{f.session={access_token:'old',user:{id:'owner'}};f.calls=[];f.refresh=async token=>{assert.equal(token,'old');f.session={access_token:'new',user:{id:'owner'}};return f.session;};});
+test.afterEach(()=>globalThis.fetch=fetchBefore);
+test('an expired API access token refreshes once and retries without wiping login',async()=>{globalThis.fetch=async(url,options)=>{f.calls.push(options.headers.Authorization);return f.calls.length===1?Response.json({error:'Please log in.'},{status:401}):Response.json({ok:true});};assert.equal((await api('/api/me',{expectedUserId:'owner'})).ok,true);assert.deepEqual(f.calls,['Bearer old','Bearer new']);});
+test('a persistent API 401 surfaces an error without deleting a valid auth-service session',async()=>{globalThis.fetch=async()=>{f.calls.push(1);return Response.json({error:'Please log in.'},{status:401});};await assert.rejects(api('/api/me'),/Please log in/);assert.equal(f.calls.length,2);assert.equal(f.session.access_token,'new');});
+test('a stale response cannot retry an operation under a different signed-in account',async()=>{globalThis.fetch=async()=>{f.calls.push(1);return Response.json({error:'Please log in.'},{status:401});};f.refresh=async()=>({access_token:'other',user:{id:'other-account'}});await assert.rejects(api('/api/me',{method:'PUT',body:{name:'A'},expectedUserId:'owner'}),/account changed/);assert.equal(f.calls.length,1);});
+test('temporary backend failures do not trigger a token refresh or clear persistent login',async()=>{globalThis.fetch=async()=>Response.json({error:'Unavailable'},{status:503});f.refresh=()=>assert.fail('Unexpected auth refresh');await assert.rejects(api('/api/me'),/Unavailable/);assert.equal(f.session.access_token,'old');});

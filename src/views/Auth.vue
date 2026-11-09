@@ -23,7 +23,7 @@ function chooseEmail(){emailMethod.value=true;err.value="";}
 
 async function retryProfile() {
   busy.value = true; err.value = "";
-  try { await loadProfile(); router.replace(!session.adultTermsAccepted ? "/login" : session.profile ? "/app/discover" : "/onboarding"); }
+  try { await loadProfile(); session.notice="";router.replace(!session.adultTermsAccepted ? "/login" : session.profile ? "/app/discover" : "/onboarding"); }
   catch (e) { err.value = e.message; }
   finally { busy.value = false; }
 }
@@ -105,11 +105,11 @@ async function submit() {
    <section class="auth-sheet">
     <button type="button" class="close" :disabled="busy" aria-label="Close" @click="close">×</button>
     <RouterLink class="brand" to="/">Pacemate</RouterLink>
-    <h1>{{ needsAcknowledgement?'Before you continue.':done?(mode==='signup'?'Check your inbox.':'On its way.'):mode==='forgot'?'Reset your password':emailMethod?titles[mode]:mode==='signup'?'Get started.':'Welcome back.' }}</h1>
+    <h1>{{ session.user&&session.profileError?'Reconnect to Pacemate.':needsAcknowledgement?'Before you continue.':done?(mode==='signup'?'Check your inbox.':'On its way.'):mode==='forgot'?'Reset your password':emailMethod?titles[mode]:mode==='signup'?'Get started.':'Welcome back.' }}</h1>
     <p v-if="session.notice" class="notice" role="alert">{{ session.notice }}</p>
     <div v-if="session.user&&session.profileError"><p class="error" role="alert">{{ session.profileError }}</p><button type="button" class="method" :disabled="busy" @click="retryProfile">Retry loading your profile</button></div>
     <p v-if="done" class="notice" role="status">{{ done }}</p>
-    <template v-else>
+    <template v-else-if="!session.user||!session.profileError">
      <label v-if="needsAcknowledgement||mode==='signup'" class="adult"><input v-model="adult" type="checkbox" :disabled="busy"><span>I am 18 or older and accept the <RouterLink to="/terms" target="_blank">terms</RouterLink> and <RouterLink to="/privacy" target="_blank">privacy policy</RouterLink>.</span></label>
      <form v-if="needsAcknowledgement" @submit.prevent="acceptTerms" :aria-busy="busy"><button class="method primary" :disabled="busy">{{ busy?'Saving…':'Accept and continue' }}</button></form>
      <div v-else-if="!emailMethod&&mode!=='forgot'" class="methods">

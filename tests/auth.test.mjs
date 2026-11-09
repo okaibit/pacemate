@@ -230,3 +230,31 @@ test('email confirmation also requires the initiating browser state and consumes
  assert.equal((await client.getSession()).user.id,user.id);
  await assert.rejects(client.handleCallback(),/callback rejected/);
 });
+
+test('closing and reopening the app restores persistent login without a password',async()=>{
+ const {client,storage,location}=setup(async()=>Response.json(tokens()));await client.login(user.email,'password123');
+ const requests=[];
+ const reopened=createAuthClient({url:'https://test.supabase.co',key:'public',storage,transactionStorage:{getItem:()=>null},location,fetcher:async(url,options)=>{requests.push(url);assert.equal(options.headers.Authorization,'Bearer access');return Response.json(user);}});
+ assert.deepEqual(await reopened.getUser(),user);assert.equal(requests.length,1);assert.ok(requests[0].endsWith('/user'));
+});
+test('reopening after access-token expiry uses the saved refresh token',async()=>{
+ const {client,storage,location}=setup();storage.setItem(client.storageKey,JSON.stringify({access_token:'expired',refresh_token:'saved-refresh',expires_at:1,user}));
+ const paths=[];const reopened=createAuthClient({url:'https://test.supabase.co',key:'public',storage,location,fetcher:async(url,options)=>{paths.push(url);if(url.includes('grant_type=refresh_token')){assert.equal(JSON.parse(options.body).refresh_token,'saved-refresh');return Response.json(tokens({access_token:'renewed',refresh_token:'renewed-refresh'}));}assert.equal(options.headers.Authorization,'Bearer renewed');return Response.json(user);}});
+ assert.deepEqual(await reopened.getUser(),user);assert.equal(paths.length,2);assert.equal((await reopened.getSession()).refresh_token,'renewed-refresh');
+});
+test('a rejected access token is refreshed before deciding the saved login is revoked',async()=>{
+ let reads=0,refreshes=0;const {client,storage}=setup(async url=>{if(url.includes('grant_type=refresh_token')){refreshes++;return Response.json(tokens({access_token:'new-access'}));}reads++;return reads===1?Response.json({msg:'Expired JWT'},{status:401}):Response.json(user);});
+ storage.setItem(client.storageKey,JSON.stringify({...tokens(),expires_at:Date.now()/1000+3600}));
+ assert.deepEqual(await client.getUser(),user);assert.equal(refreshes,1);assert.equal(reads,2);assert.equal((await client.getSession()).access_token,'new-access');
+});
+test('temporary refresh failures preserve persistent tokens for another reopen attempt',async()=>{
+ const {client,storage}=setup(async()=>Response.json({msg:'Unavailable'},{status:503}));storage.setItem(client.storageKey,JSON.stringify({...tokens(),expires_at:1}));
+ const before=storage.getItem(client.storageKey);await assert.rejects(client.getSession(),/Unavailable/);assert.equal(storage.getItem(client.storageKey),before);
+});
+test('tabs serialize refresh rotation with Web Locks and reuse the freshly persisted tokens',async()=>{
+ const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};let queue=Promise.resolve(),calls=0;
+ const locks={request(_name,fn){const work=queue.then(fn);queue=work.catch(()=>{});return work;}};
+ const options={url:'https://test.supabase.co',key:'public',storage,locks,location:{origin:'https://app.test'},fetcher:async()=>{calls++;return Response.json(tokens({access_token:'rotated',refresh_token:'rotated-refresh'}));}};
+ const a=createAuthClient(options),b=createAuthClient(options);storage.setItem(a.storageKey,JSON.stringify({...tokens(),expires_at:1}));
+ const [first,second]=await Promise.all([a.getSession(),b.getSession()]);assert.equal(calls,1);assert.equal(first.access_token,'rotated');assert.equal(second.access_token,'rotated');
+});

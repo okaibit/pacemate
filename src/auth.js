@@ -10,7 +10,7 @@ export function loadProfile() {
   if(!id){session.profile=null;session.adultTermsAccepted=false;session.profileError="";return Promise.resolve();}
   if(profileFlight?.id===id)return profileFlight.promise;
   const request=++profileRequest;
-  const promise=api("/api/me").then(result=>{
+  const promise=api("/api/me",{expectedUserId:id}).then(result=>{
     if(request===profileRequest&&session.user?.id===id){session.profile=result.profile;session.adultTermsAccepted=result.adultTermsAccepted===true;session.profileError="";}
   }).catch(error=>{
     if(request===profileRequest&&session.user?.id===id)session.profileError=error.message;
@@ -41,7 +41,13 @@ export async function initAuth() {
     session.user = result ? (await authClient.getSession())?.user || null : await authClient.getUser();
     if (session.user && window.sessionStorage.getItem("pacemate-recovery")) session.callback = "recovery";
     await loadProfile();
-  } catch (error) { session.notice = error.message || "Could not restore your session."; }
+  } catch (error) {
+    session.notice = error.message || "Could not restore your session.";
+    if(session.callback!=="error"&&!session.user){
+      const saved=authClient.peekSession?.();
+      if(saved?.user?.id){session.user=saved.user;session.profileError="Your sign-in is saved, but we couldn’t reconnect. Please retry.";}
+    }
+  }
   finally { session.ready = true; }
   authClient.onChange((event, user) => {
     const previousId=session.user?.id;
