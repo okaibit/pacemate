@@ -11,7 +11,7 @@ const bundle=await rolldown({input:'supabase/functions/pacemate/handlers/message
 const out=await bundle.generate({format:'esm'});await bundle.close();const {default:handler}=await import('data:text/javascript;base64,'+Buffer.from(out.output[0].code).toString('base64'));
 const send=body=>handler(new Request('https://test/api/matches/12/messages',{method:'POST',body:JSON.stringify(body)}),{params:{id:'12'}});
 test.beforeEach(()=>{f.enabled=true;f.original=true;f.existing=false;f.queries=[];f.pushes=[];f.rows=async(sql,args=[])=>{
- f.queries.push({sql,args});if(sql.includes('information_schema.columns'))return [{enabled:f.enabled}];
+ f.queries.push({sql,args});if(sql.includes('information_schema.columns'))return [{enabled:f.enabled?'1':'0'}];
  if(sql.startsWith('SELECT 1 FROM public.matches'))return [{one:1}];if(sql.startsWith('SELECT * FROM public.messages'))return f.existing?[{id:100,match_id:12,body:'Answer',created_at:'2026-11-09'}]:[];
  if(sql.startsWith('SELECT id FROM public.messages WHERE id='))return f.original?[{id:7}]:[];
  if(sql.startsWith('INSERT INTO public.messages'))return [{id:100,match_id:12,body:'Answer',created_at:'2026-11-09'}];

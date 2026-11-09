@@ -57,3 +57,16 @@ test('reply sends the selected saved ID and retains its quote in the optimistic 
  await waitFor(()=>chat.messages.value.at(-1).status==='sent');
  const post=requests.find(r=>r.api&&r.method==='POST');assert.equal(post.body.replyToId,7);assert.equal(post.body.reply,undefined);
 });
+
+test('fresh message rows enable replies after SQL is applied while an older chat is open',async()=>{
+ globalThis.__chatFixture.api=async()=>({other:{id:'other',name:'Alex'},repliesEnabled:false});
+ records=[{id:7,sender_id:'other',body:'Hello',reply_to_id:null,created_at:new Date().toISOString()}];
+ const chat=useChat(12);await waitFor(()=>chat.ready.value&&!chat.loading.value&&chat.messages.value.length===1);
+ assert.equal(chat.canReply.value,true);
+});
+
+test('an optimistic ordinary send cannot enable replies before the database supports them',async()=>{
+ globalThis.__chatFixture.api=async(path,options)=>options?.method==='POST'?{message:{id:100,body:'Hello',createdAt:new Date().toISOString(),reply_to_id:null,reply:null}}:{other:{id:'other',name:'Alex'},repliesEnabled:false};
+ const chat=useChat(12);await waitFor(()=>chat.ready.value&&!chat.loading.value);chat.send('Hello');
+ await waitFor(()=>chat.messages.value.at(-1)?.status==='sent');assert.equal(chat.canReply.value,false);
+});

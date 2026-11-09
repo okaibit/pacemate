@@ -1,7 +1,7 @@
 import {rows} from './feature-db.ts';
 export async function repliesEnabled(){
- const [result]=await rows("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='reply_to_id') AS enabled");
- return result?.enabled===true;
+ const [result]=await rows("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='reply_to_id')::int AS enabled");
+ return Number(result?.enabled)===1;
 }
 export async function replyQuotes(matchId:number,ids:number[]){
  if(!ids.length)return {};
