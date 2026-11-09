@@ -1,5 +1,6 @@
 import {handle,json,body,str,HttpError,publicProfile} from '../server/http.ts';
 import {rows,transaction,requireMatch,rateLimit,camel} from '../server/feature-db.ts';
+import {queueSocialPush} from '../server/push-delivery.ts';
 import {signedPhoto} from '../server/supabase.ts';
 
 export default handle(async(req,ctx)=>{
@@ -51,6 +52,7 @@ export default handle(async(req,ctx)=>{
         ?tx.unsafe('INSERT INTO public.messages(match_id,sender_id,body,attachment_id,client_id) VALUES($1,$2,$3,$4,$5) RETURNING *',[id,user.id,text,attachmentId,clientId])
         :tx.unsafe('INSERT INTO public.messages(match_id,sender_id,body,attachment_id) VALUES($1,$2,$3,$4) RETURNING *',[id,user.id,text,attachmentId]);
     });
+    queueSocialPush(`message:${message.id}`);
     let imageUrl=null;
     if(message.attachment_id){const [a]=await rows('SELECT object_key FROM public.chat_attachments WHERE id=$1',[message.attachment_id]);if(a)imageUrl=await signedPhoto('chat',a.object_key);}
     return json({message:{id:message.id,body:message.body,mine:true,createdAt:message.created_at,imageUrl}},201);

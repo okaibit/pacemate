@@ -14,10 +14,11 @@ export async function pushRest(path,{method='GET',body}={}){
 const bytes=key=>Uint8Array.from(atob(key.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(key.length/4)*4,'=')),c=>c.charCodeAt(0));
 export async function syncPush(){
  if(!supported)return;const reg=await navigator.serviceWorker.getRegistration();const sub=await reg?.pushManager.getSubscription();
- enabled.value=!!sub&&!!(await pushRest(`push_subscriptions?select=id&endpoint=eq.${encodeURIComponent(sub.endpoint)}`)).length;
+ enabled.value=!!sub&&(await api('/api/notifications/push?endpoint='+encodeURIComponent(sub.endpoint))).enabled===true;
 }
 export async function enablePush(publicKey){
- if(!supported||needsHomeScreen)throw new Error('Add Pacemate to your Home Screen to enable notifications (iOS 16.4+).');
+ if(needsHomeScreen)throw new Error('Add Pacemate to your Home Screen to enable notifications (iOS 16.4+).');
+ if(!supported)throw new Error('This browser does not support notifications. Try Chrome, Edge or an installed Safari web app.');
  // Obtain configuration before prompting; this function is only called by a tap.
  const key=publicKey||configuredKey;
  if(!key)throw new Error('Push delivery is not configured yet.');
@@ -25,15 +26,14 @@ export async function enablePush(publicKey){
  await navigator.serviceWorker.register('/sw.js');const reg=await navigator.serviceWorker.ready;
  const sub=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes(key)});
  const current=await authClient.getSession();const json=sub.toJSON();
- const existing=await pushRest(`push_subscriptions?select=id&endpoint=eq.${encodeURIComponent(sub.endpoint)}`);
- if(!existing.length)await pushRest('push_subscriptions',{method:'POST',body:{user_id:current.user.id,endpoint:sub.endpoint,p256dh:json.keys.p256dh,auth:json.keys.auth,user_agent:navigator.userAgent.slice(0,500)}});
+ await api('/api/notifications/push',{method:'POST',body:json,expectedUserId:current.user.id});
  enabled.value=true;dismissed.value=true;
 }
 export async function disablePush(){
  if(!('serviceWorker' in navigator))return;const reg=await navigator.serviceWorker.getRegistration();const sub=await reg?.pushManager?.getSubscription();
- if(sub){await pushRest(`push_subscriptions?endpoint=eq.${encodeURIComponent(sub.endpoint)}`,{method:'DELETE'});await sub.unsubscribe();}
+ if(sub){await api('/api/notifications/push',{method:'DELETE',body:{endpoint:sub.endpoint}});await sub.unsubscribe();}
  enabled.value=false;
 }
-export function noteMessage(){if(!keyRequest&&!configuredKey)keyRequest=api('/api/settings').then(s=>{configuredKey=s.pushKey||'';}).catch(()=>{}).finally(()=>{eligible.value=true;});else eligible.value=true;}
+export function noteMessage(){if(!keyRequest&&!configuredKey)keyRequest=api('/api/settings').then(s=>{configuredKey=s.pushKey||'';}).catch(()=>{}).finally(()=>{keyRequest=null;eligible.value=true;});else eligible.value=true;}
 export function usePush(){return {enabled,error,busy,supported,needsHomeScreen,showPrompt:computed(()=>eligible.value&&!dismissed.value&&!enabled.value&&(supported||needsHomeScreen)),dismiss:()=>{dismissed.value=true;},enable:async()=>{busy.value=true;error.value='';try{await enablePush();}catch(e){error.value=e.message;}finally{busy.value=false;}}};}
 authClient.onChange((event,user)=>{if(!user){enabled.value=false;eligible.value=false;dismissed.value=false;}else syncPush().catch(()=>{});});

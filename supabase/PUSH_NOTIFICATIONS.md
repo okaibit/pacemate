@@ -1,3 +1,33 @@
+# Current message and match notifications
+
+The PaceMate match-chat flow now sends Web Push immediately in an EdgeRuntime background task after a message or mutual match commits. It reuses the existing notifications outbox and delivery states. No new SQL, Database Webhook or external notification provider is required for this path.
+
+Subscriptions are registered through authenticated /api/notifications/push, which saves the device and sets notification_settings.push_enabled. Subscription status and removal are owner-scoped. A known endpoint cannot be reassigned to another user. Free and Plus members have the same notification access.
+
+Before sending, the backend rechecks the match, blocks, suspensions, read state and any existing pair-conversation mute. Notification payloads use generic message/match text, not private message contents. Only validated browser-vendor endpoints are contacted; expired subscriptions are removed. Outbox claims prevent competing workers from dispatching the same pending record at once. Partial push-provider failures may cause a repeated notification on retry; tags collapse matching notifications, but delivery is not exactly-once.
+
+## Test project setup
+
+Existing push-related secret names were checked before adding configuration. If VAPID keys already exist, reuse them; rotating keys invalidates subscriptions.
+
+For a project with no existing keys:
+
+```sh
+VAPID_SUBJECT=mailto:trypacemate@gmail.com node scripts/setup-push-secrets.mjs clwgczzpucjdguyfctcg --social-only
+```
+
+This uploads VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT through a temporary restricted file that is removed afterwards. Only the public key may be printed. No frontend variable is required: /api/settings supplies the public key. Deploy pacemate and publish the frontend using the established preview workflow.
+
+Open Profile > Settings > Message and match notifications > Enable. Permission is requested only after a tap. On iPhone/iPad, first add PaceMate to the Home Screen and launch it there (iOS/iPadOS 16.4+). OS notification permissions and Focus settings control whether alerts are shown.
+
+Verify on two real phones/accounts: enable, background the recipient app, send a message, confirm lock-screen delivery and open the conversation from it. Test a new mutual match, permission denial, disabling this device, blocked/unmatched pairs and logout. A physical-device delivery has not been verified by automated tests.
+
+Immediate background work can be interrupted by runtime or vendor failures. Failed deliveries remain pending. The existing authenticated dispatcher can retry them if the previously documented notification cron is configured; without that schedule, automatic retries are not guaranteed. Enabling the optional cron/Vault schedule requires running the reviewed schedule-notifications.sql manually; it was not executed by this agent.
+
+The older direct-conversation webhook implementation below remains separate. It is not needed to enable notifications for the current Matches chat flow.
+
+---
+
 # Message web push
 
 Implementation uses the existing auth client and Supabase REST/Realtime. `web-push` is an encryption/VAPID library running inside the Edge Function, not a hosted push service. Delivery goes directly to browser vendor endpoints.

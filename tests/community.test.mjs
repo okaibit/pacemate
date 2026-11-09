@@ -471,3 +471,21 @@ test('empty Discover results do not issue an unnecessary second profile query',a
  const response=await request('/api/discover');assert.equal(response.status,200);assert.deepEqual((await response.json()).people,[]);
  assert.ok(!calls.some(c=>c.sql.includes('WHERE p.id=$1')));
 });
+
+test('phone push registration persists the authenticated owner and enables match/message delivery',async()=>{
+ const endpoint='https://fcm.googleapis.com/push/device';
+ env.VAPID_PUBLIC_KEY='fixture';env.VAPID_PRIVATE_KEY='fixture';
+ try{
+  sqlHandler=async(sql,params)=>sql.includes('count(*)::int AS n')?[{n:0}]:sql.startsWith('INSERT INTO public.push_subscriptions')?[{user_id:params[0]}]:sql.includes('feature_limits')?[{hits:1}]:[];
+  assert.equal((await request('/api/notifications/push','POST',{user_id:'victim',endpoint,keys:{p256dh:'A'.repeat(86),auth:'B'.repeat(22)}})).status,200);
+  const insert=calls.find(c=>c.sql.startsWith('INSERT INTO public.push_subscriptions'));assert.equal(insert.params[0],member.id);assert.match(insert.sql,/WHERE push_subscriptions.user_id=EXCLUDED.user_id/);
+  assert.ok(calls.some(c=>c.sql.includes('push_enabled=true')));
+ }finally{delete env.VAPID_PUBLIC_KEY;delete env.VAPID_PRIVATE_KEY;}
+});
+test('subscription status and deletion are scoped to the authenticated device owner',async()=>{
+ sqlHandler=async sql=>sql.startsWith('SELECT 1 FROM public.push_subscriptions')?[{one:1}]:sql.startsWith('SELECT push_enabled')?[{push_enabled:true}]:[];
+ const endpoint='https://fcm.googleapis.com/push/device';
+ const status=await request('/api/notifications/push?endpoint='+encodeURIComponent(endpoint));assert.equal(status.status,200);assert.equal((await status.json()).enabled,true);
+ assert.equal((await request('/api/notifications/push','DELETE',{endpoint})).status,200);
+ const removal=calls.find(c=>c.sql.startsWith('DELETE FROM public.push_subscriptions'));assert.deepEqual(removal.params,[member.id,endpoint]);
+});

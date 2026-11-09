@@ -32,7 +32,7 @@ onBeforeUnmount(()=>window.removeEventListener("resize",resize));
 let timer;
 async function refresh() {
   if (document.visibilityState !== "visible") return;
-  try { badges.value = await api("/api/today/badges"); if(badges.value.unread)noteMessage(); alerts.value = (await api("/api/notifications")).unread; } catch {}
+  try { badges.value = await api("/api/today/badges"); if(badges.value.unread)noteMessage(); alerts.value = (await api("/api/notifications")).unread;if(alerts.value)noteMessage(); } catch {}
 }
 onMounted(() => { refresh(); timer = setInterval(refresh, 30000); document.addEventListener("visibilitychange", refresh); });
 onBeforeUnmount(() => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); });

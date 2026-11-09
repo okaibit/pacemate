@@ -1,6 +1,7 @@
 import {json,HttpError} from '../server/http.ts';
 import {rows,transaction,rateLimit} from '../server/feature-db.ts';
 import {internalHref} from '../server/validation.js';
+import {deliverPushNotification} from '../server/push-delivery.ts';
 import {deletePrivate} from '../server/supabase.ts';
 
 const appUrl=()=> (Deno.env.get('PACEMATE_APP_URL')||'https://pacematess.netlify.app').replace(/\/$/,'');
@@ -19,26 +20,6 @@ async function email(n:any){
       text:`${n.title}\n${n.body}\n${href}\n\nUnsubscribe: ${unsubscribe}`}),signal:AbortSignal.timeout(10000),
   });
   if(!response.ok)throw new Error(`EMAIL_PROVIDER_${response.status}`);
-  return 'sent';
-}
-async function push(n:any){
-  if(n.kind==='message'||!n.push_enabled)return 'skipped';
-  const publicKey=Deno.env.get('VAPID_PUBLIC_KEY'),privateKey=Deno.env.get('VAPID_PRIVATE_KEY');
-  if(!publicKey||!privateKey)return 'unconfigured';
-  const subscribers=await rows('SELECT * FROM public.push_subscriptions WHERE user_id=$1 LIMIT 5',[n.user_id]);
-  if(!subscribers.length)return 'skipped';
-  const {default:webpush}=await import('web-push');
-  webpush.setVapidDetails('mailto:trypacemate@gmail.com',publicKey,privateKey);
-  let failed=false;
-  await Promise.all(subscribers.map(async s=>{
-    try{
-      const details=webpush.generateRequestDetails({endpoint:s.endpoint,keys:{p256dh:s.p256dh,auth:s.auth}},JSON.stringify({title:n.title,body:n.body,href:internalHref(n.href),tag:`pacemate-${n.id}`}),{TTL:3600});
-      const response=await fetch(details.endpoint,{method:details.method,headers:Object.fromEntries(Object.entries(details.headers).map(([key,value])=>[key,String(value)])),body:details.body?new Uint8Array(details.body).buffer:undefined,signal:AbortSignal.timeout(10000)});
-      if(!response.ok)throw Object.assign(new Error('Push service rejected delivery'),{statusCode:response.status});
-    }
-    catch(error){if([404,410].includes(error.statusCode))await rows('DELETE FROM public.push_subscriptions WHERE id=$1',[s.id]);else failed=true;}
-  }));
-  if(failed)throw new Error('PUSH_DELIVERY_FAILED');
   return 'sent';
 }
 export default async(req:Request)=>{
@@ -77,7 +58,7 @@ export default async(req:Request)=>{
     const states:any={};
     for(const channel of ['email','push']){
       if(['sent','skipped','expired'].includes(n[channel+'_state'])||n[channel+'_attempts']>=5)continue;
-      try{states[channel]=await(channel==='email'?email(n):push(n));}
+      try{states[channel]=await(channel==='email'?email(n):deliverPushNotification(n));}
       catch(error){states[channel]='pending';console.error('notification delivery failed',{id:n.id,channel,code:channel==='email'&&/^EMAIL_PROVIDER_\d+$/.test(error.message)?error.message:channel.toUpperCase()+'_DELIVERY_FAILED'});}
       // Unconfigured providers do not consume retry attempts.
       await rows(`UPDATE public.notifications SET ${channel}_state=$2,${channel}_attempts=${channel}_attempts+$3,claim_until=now()+interval '2 minutes' WHERE id=$1`,[n.id,states[channel],states[channel]==='unconfigured'?0:1]);

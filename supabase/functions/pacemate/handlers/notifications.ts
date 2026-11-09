@@ -13,6 +13,13 @@ export default handle(async(req,ctx)=>{
   }
   const {user}=await requireProfile(req);
   if(action==='push'){
+    if(req.method==='GET'){
+      const endpoint=new URL(req.url).searchParams.get('endpoint');
+      if(!endpoint||endpoint.length>2048)throw new HttpError(422,'Missing subscription.');
+      const [subscription]=await rows('SELECT 1 FROM public.push_subscriptions WHERE user_id=$1 AND endpoint=$2',[user.id,endpoint]);
+      const [settings]=await rows('SELECT push_enabled FROM public.notification_settings WHERE user_id=$1',[user.id]);
+      return json({subscribed:!!subscription,enabled:!!subscription&&settings?.push_enabled===true});
+    }
     const b=await body(req);
     if(req.method==='DELETE'){
       if(typeof b.endpoint!=='string')throw new HttpError(422,'Missing subscription.');
@@ -24,8 +31,10 @@ export default handle(async(req,ctx)=>{
     await rateLimit(user.id,'push-subscribe',10,3600);
     const [{n}]=await rows('SELECT count(*)::int AS n FROM public.push_subscriptions WHERE user_id=$1 AND endpoint<>$2',[user.id,b.endpoint]);
     if(n>=5)throw new HttpError(409,'Five devices are already subscribed. Remove one before adding another.');
-    await rows(`INSERT INTO public.push_subscriptions(user_id,endpoint,p256dh,auth) VALUES($1,$2,$3,$4)
-      ON CONFLICT(endpoint) DO UPDATE SET user_id=EXCLUDED.user_id,p256dh=EXCLUDED.p256dh,auth=EXCLUDED.auth`,[user.id,b.endpoint,b.keys.p256dh,b.keys.auth]);
+    const registered=await rows(`INSERT INTO public.push_subscriptions(user_id,endpoint,p256dh,auth) VALUES($1,$2,$3,$4)
+      ON CONFLICT(endpoint) DO UPDATE SET p256dh=EXCLUDED.p256dh,auth=EXCLUDED.auth
+      WHERE push_subscriptions.user_id=EXCLUDED.user_id RETURNING user_id`,[user.id,b.endpoint,b.keys.p256dh,b.keys.auth]);
+    if(!registered.length)throw new HttpError(409,'This device is registered to another account. Sign out of that account first.');
     await rows('INSERT INTO public.notification_settings(user_id,push_enabled) VALUES($1,true) ON CONFLICT(user_id) DO UPDATE SET push_enabled=true',[user.id]);
     return json({ok:true});
   }

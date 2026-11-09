@@ -8,7 +8,7 @@ self.addEventListener('fetch',event=>{
 });
 self.addEventListener('push',event=>{
   let data;try{data=event.data.json()||{};}catch{data={};}
-  event.waitUntil(self.registration.showNotification(data.title||'Pacemate',{body:data.body||'',icon:'/icon-192.png',badge:'/icon-192.png',tag:data.tag||'pacemate',data:{href:data.conversationId ? `/chat/${encodeURIComponent(data.conversationId)}` : data.href||'/app/notifications'}}));
+  event.waitUntil(self.registration.showNotification(data.title||'Pacemate',{body:data.body||'',icon:'/icon-192.png?v=leaf-1',badge:'/icon-192.png?v=leaf-1',tag:data.tag||'pacemate',data:{href:data.conversationId ? `/chat/${encodeURIComponent(data.conversationId)}` : data.href||'/app/notifications'}}));
 });
 self.addEventListener('notificationclick',event=>{
   event.notification.close();
