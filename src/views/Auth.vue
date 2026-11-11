@@ -13,7 +13,7 @@ const emailMethod = ref(false);
 const email = ref(""), password = ref(""), adult = ref(false);
 const busy = ref(false), err = ref(""), done = ref("");
 const providers = ref({}), providersLoading = ref(false), providersError = ref("");
-const titles = { login: "Back to your people.", signup: "Your story starts here.", forgot: "Reset your password" };
+const titles = { login: "Back to your people.", signup: "Meet someone who shares your pace.", forgot: "Reset your password" };
 watch(()=>props.mode,()=>{err.value="";done.value="";password.value="";emailMethod.value=false;});
 const needsAcknowledgement = computed(() => !!session.user && !session.adultTermsAccepted);
 const oauth = computed(() => Object.entries(providers.value).filter(([k, on]) => on && ["google", "github"].includes(k)).map(([k]) => k));
@@ -100,7 +100,7 @@ async function submit() {
 
 <template>
  <main class="auth-page">
-  <div class="auth-background" aria-hidden="true"><span class="brand-lockup"><img class="brand-mark" src="/logo-mark.svg" alt="" aria-hidden="true">Pacemate</span><p>A shared pace.<br>A new beginning.</p></div>
+  <div class="auth-background" aria-hidden="true"><span class="brand-lockup"><img class="brand-mark" src="/logo-mark.svg" alt="" aria-hidden="true">Pacemate</span><p>Meet through what<br>you love doing.</p></div>
   <Modal :label="mode==='signup'?'Create your Pacemate account':'Log in to Pacemate'" plain flush @close="close">
    <section class="auth-sheet">
     <button type="button" class="close" :disabled="busy" aria-label="Close" @click="close">×</button>

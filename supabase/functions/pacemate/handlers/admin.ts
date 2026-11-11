@@ -6,6 +6,34 @@ export default handle(async(req,ctx)=>{
   const {user}=await requireAdmin(req);
   const section=ctx.params.section||'reports',id=ctx.params.id;
   if(req.method==='GET'){
+    if(section==='metrics'){const [metrics]=await rows(`
+      WITH profile_scores AS (
+        SELECT p.id,p.connection_modes,p.last_active_at,
+          (p.name<>'')::int + (p.birthdate IS NOT NULL)::int +
+          ((p.city<>'' AND p.country<>''))::int + (p.bio<>'')::int +
+          (cardinality(p.languages)>0)::int + (cardinality(p.photos)>0)::int +
+          ((cardinality(p.preferred_days)>0 AND cardinality(p.preferred_times)>0))::int +
+          (p.preferred_intensity IN ('low','moderate','high'))::int +
+          (cardinality(p.lifestyle_interests)>0)::int +
+          (cardinality(p.connection_modes)>0)::int +
+          (EXISTS(SELECT 1 FROM public.user_sports us WHERE us.user_id=p.id) AND NOT EXISTS(
+            SELECT 1 FROM public.user_sports us WHERE us.user_id=p.id
+              AND (us.experience_level NOT IN ('beginner','intermediate','advanced')
+                OR us.preferred_intensity NOT IN ('low','moderate','high'))
+          ))::int AS completion_fields
+        FROM public.profiles p
+      )
+      SELECT
+        (SELECT count(*)::int FROM public.profiles) AS total_profiles,
+        (SELECT count(*)::int FROM profile_scores WHERE connection_modes @> ARRAY['dating']::text[]) AS date_enabled_profiles,
+        (SELECT count(*)::int FROM profile_scores WHERE completion_fields=11) AS complete_profiles,
+        (SELECT count(*)::int FROM profile_scores WHERE completion_fields=11 AND connection_modes @> ARRAY['dating']::text[]) AS complete_date_profiles,
+        (SELECT count(*)::int FROM profile_scores WHERE last_active_at>=now()-interval '7 days') AS active_7d,
+        (SELECT count(*)::int FROM profile_scores WHERE last_active_at>=now()-interval '30 days') AS active_30d,
+        (SELECT count(*)::int FROM public.swipes WHERE intention='date' AND liked AND acted_at>=now()-interval '30 days') AS date_likes_30d,
+        (SELECT count(*)::int FROM public.matches WHERE intention='date' AND created_at>=now()-interval '30 days') AS date_matches_30d,
+        (SELECT count(*)::int FROM public.matches WHERE intention='date' AND ended_at IS NULL) AS active_date_matches
+    `);return json({metrics:metrics||{}});}
     if(section==='reports')return json({reports:await rows(`SELECT r.*,p.name,p.photos,p.suspended FROM public.reports r LEFT JOIN public.profiles p ON p.id=r.reported_id ORDER BY (r.status='open') DESC,r.id DESC LIMIT 100`)});
     if(section==='blocks')return json({blocks:await rows(`SELECT b.blocker_id||':'||b.blocked_id AS id,b.*,p.name AS blocker_name,q.name AS blocked_name FROM public.blocks b JOIN public.profiles p ON p.id=b.blocker_id JOIN public.profiles q ON q.id=b.blocked_id ORDER BY b.created_at DESC LIMIT 100`)});
     if(section==='verifications'){

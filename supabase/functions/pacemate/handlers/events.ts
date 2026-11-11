@@ -26,7 +26,7 @@ export default handle(async(req,ctx)=>{
       ORDER BY next_at,e.id LIMIT $3 OFFSET $4`,[viewer,city,limit+1,offset,regionCities,region==='Other',arrayParam(CITIES)]);
     const hasMore=list.length>limit;list.splice(limit);
     const cities=await rows(`SELECT DISTINCT e.city FROM public.events e LEFT JOIN public.profiles p ON p.id=e.host_id WHERE e.cancelled_at IS NULL AND(e.host_id IS NULL OR NOT p.suspended) AND(e.weekly OR e.starts_at>now()-interval '2 hours') ORDER BY e.city`);
-    return json({cities:cities.map(c=>c.city),hasMore,events:list.map(e=>({id:e.id,city:e.city,kind:e.kind,title:e.title,description:e.description,location:e.location,startsAt:e.next_at,originalStartsAt:e.starts_at,timezone:e.timezone,weekly:e.weekly,capacity:e.capacity,going:e.going,mine:e.mine,attendees:e.attendees,host:e.host_id?{id:e.host_id,name:viewer?e.host_name:'A member'}:null,isHost:viewer===e.host_id}))});
+    return json({cities:cities.map(c=>c.city),hasMore,events:list.map(e=>({id:e.id,clubId:e.club_id,city:e.city,kind:e.kind,title:e.title,description:e.description,location:e.location,startsAt:e.next_at,originalStartsAt:e.starts_at,timezone:e.timezone,weekly:e.weekly,capacity:e.capacity,going:e.going,mine:e.mine,attendees:e.attendees,host:e.host_id?{id:e.host_id,name:viewer?e.host_name:'A member'}:null,isHost:viewer===e.host_id}))});
   }
   const {user}=await requireProfile(req);
   if(req.method==='POST'&&action==='rsvp'){
@@ -61,17 +61,23 @@ export default handle(async(req,ctx)=>{
     try{new Intl.DateTimeFormat('en',{timeZone:timezone});}catch{throw new HttpError(422,'Invalid timezone.');}
     const capacity=b.capacity===''||b.capacity==null?null:Number(b.capacity);
     if(capacity!==null&&(!Number.isInteger(capacity)||capacity<2||capacity>500))throw new HttpError(422,'Capacity must be 2–500.');
-    const values=[canonCity(str(b.city,60,'City',true)),pick(b.kind,EVENT_KINDS,'activity',true),str(b.title,80,'Title',true),str(b.description,1000,'Details'),str(b.location,120,'Meeting point',true),when.toISOString(),timezone,!!b.weekly,capacity];
+    const clubId=b.clubId==null||b.clubId===''?null:Number(b.clubId);
+    if(clubId!==null){
+      if(!Number.isSafeInteger(clubId)||clubId<1)throw new HttpError(422,'Choose a valid run club.');
+      const [club]=await rows('SELECT id FROM public.run_clubs WHERE id=$1 AND organizer_id=$2 AND archived_at IS NULL',[clubId,user.id]);
+      if(!club)throw new HttpError(403,'Only the run club organizer can add sessions to it.');
+    }
+    const values=[canonCity(str(b.city,60,'City',true)),pick(b.kind,EVENT_KINDS,'activity',true),str(b.title,80,'Title',true),str(b.description,1000,'Details'),str(b.location,120,'Meeting point',true),when.toISOString(),timezone,!!b.weekly,capacity,clubId];
     if(!id){
       await rateLimit(user.id,'host-session',10,86400);
-      const e=await transaction(async tx=>{const [e]=await tx.unsafe(`INSERT INTO public.events(city,kind,title,description,location,starts_at,timezone,weekly,capacity,host_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,[...values,user.id]);await tx.unsafe('INSERT INTO public.rsvps(event_id,user_id) VALUES($1,$2)',[e.id,user.id]);return e;});return json({event:e},201);
+      const e=await transaction(async tx=>{const [e]=await tx.unsafe(`INSERT INTO public.events(city,kind,title,description,location,starts_at,timezone,weekly,capacity,club_id,host_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,[...values,user.id]);await tx.unsafe('INSERT INTO public.rsvps(event_id,user_id) VALUES($1,$2)',[e.id,user.id]);return e;});return json({event:e},201);
     }
     await transaction(async tx=>{
       const [e]=await tx.unsafe('SELECT * FROM public.events WHERE id=$1 AND host_id=$2 AND cancelled_at IS NULL FOR UPDATE',[id,user.id]);
       if(!e)throw new HttpError(403,'Only the host can edit this session.');
       const attendees=await tx.unsafe('SELECT user_id FROM public.rsvps WHERE event_id=$1',[id]);
       if(capacity!==null&&capacity<attendees.length)throw new HttpError(409,'Capacity cannot be below the number already going.');
-      await tx.unsafe(`UPDATE public.events SET city=$1,kind=$2,title=$3,description=$4,location=$5,starts_at=$6,timezone=$7,weekly=$8,capacity=$9,updated_at=now() WHERE id=$10`,[...values,id]);
+      await tx.unsafe(`UPDATE public.events SET city=$1,kind=$2,title=$3,description=$4,location=$5,starts_at=$6,timezone=$7,weekly=$8,capacity=$9,club_id=CASE WHEN $11 THEN $10 ELSE club_id END,updated_at=now() WHERE id=$12`,[...values,Object.hasOwn(b,'clubId'),id]);
       for(const a of attendees)if(a.user_id!==user.id)await notify(tx,a.user_id,'session','Session updated',values[2] as string,'/app/events',`edit:${id}:${crypto.randomUUID()}:${a.user_id}`,user.id);
     });return json({ok:true});
   }

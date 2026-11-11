@@ -14,3 +14,7 @@ test('conversation trigger preflight verifies catalog structure, not rendered SQ
  assert.match(migration,/v_trigger\.function_name IS DISTINCT FROM 'pacemate_create_conversation'/);
  assert.doesNotMatch(migration,/v_trigger IS DISTINCT FROM 'CREATE TRIGGER/);
 });
+
+test('conversation and message relationship preflight tolerates PostgreSQL parenthesis rendering',()=>{
+ assert.match(migration,/regexp_replace\(pg_get_constraintdef\(oid\), '\[\[:space:\]\(\)\]', '', 'g'\)='CHECKconversation_id=match_id'/);
+});

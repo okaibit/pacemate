@@ -1,9 +1,11 @@
 import {GENDERS,GOALS,SPORTS,LEVELS,ROUTINES} from './options.js';
+export const CONNECTION_MODES=Object.freeze(['dating','training_partner','friendship']);
 export const ONBOARDING_STEPS = [
  {key:'name',title:'What should we call you?',description:'Your name appears on your profile.'},
  {key:'birthdate',title:'When is your birthday?',description:'You must be 18 or older. Other members see your age only.'},
  {key:'gender',title:'How do you identify?'},
- {key:'goal',title:'What brings you here?',description:'Start with what matters most. You can edit your preferences later.'},
+ {key:'connectionModes',title:'Who are you hoping to meet?',description:'Date someone who shares your pace. You can also choose Play or Friend, or select more than one.'},
+ {key:'goal',title:'What are you looking for?',description:'Choose what best describes your intentions.'},
  {key:'interestedIn',title:'Who would you like to date?',description:'Choose one or more.'},
  {key:'ages',title:'What age range works for you?',description:'Your dating preferences.'},
  {key:'sports',title:'What moves you?',description:'Choose up to eight sports.'},
@@ -29,9 +31,10 @@ export function validateOnboardingStep(key,f,today=new Date()) {
    return age===null?'Enter a valid date of birth.':age<18?'You must be 18 or older to use Pacemate.':age>100?'Enter a valid date of birth.':'';
   }
   case 'gender':return GENDERS.includes(f.gender)?'':'Choose your gender.';
-  case 'goal':return GOALS.includes(f.goal)?'':'Choose what brings you here.';
-  case 'interestedIn':return f.interestedIn.length&&f.interestedIn.every(g=>GENDERS.includes(g))?'':'Choose at least one gender.';
-  case 'ages':return Number.isInteger(f.ageMin)&&Number.isInteger(f.ageMax)&&f.ageMin>=18&&f.ageMax<=99&&f.ageMin<=f.ageMax?'':'Choose an age range between 18 and 99.';
+  case 'connectionModes':return Array.isArray(f.connectionModes)&&f.connectionModes.length>0&&f.connectionModes.length<=3&&new Set(f.connectionModes).size===f.connectionModes.length&&f.connectionModes.every(m=>CONNECTION_MODES.includes(m))?'':'Choose at least one intention.';
+  case 'goal':return GOALS.includes(f.goal)&&(f.connectionModes?.includes('dating')||!['A relationship','Something casual'].includes(f.goal))?'':'Choose what brings you here.';
+  case 'interestedIn':return !f.connectionModes?.includes('dating')||f.interestedIn.length&&f.interestedIn.every(g=>GENDERS.includes(g))?'':'Choose at least one gender.';
+  case 'ages':return !f.connectionModes?.includes('dating')||Number.isInteger(f.ageMin)&&Number.isInteger(f.ageMax)&&f.ageMin>=18&&f.ageMax<=99&&f.ageMin<=f.ageMax?'':'Choose an age range between 18 and 99.';
   case 'sports':return f.sports.length>=1&&f.sports.length<=8&&new Set(f.sports).size===f.sports.length&&f.sports.every(s=>SPORTS.includes(s))?'':'Choose one to eight different sports.';
   case 'level':return !f.level||LEVELS.includes(f.level)?'':'Choose a valid experience level.';
   case 'routine':return !f.routine||ROUTINES.includes(f.routine)?'':'Choose a valid training time.';
@@ -43,9 +46,10 @@ export function validateOnboardingStep(key,f,today=new Date()) {
 }
 export function onboardingPayload(f){
  const {name,birthdate,gender,interestedIn,ageMin,ageMax,goal,sports,level,routine,homeCity,currentCity,bio,photos}=f;
- return {...(f.countryCode?{countryCode:f.countryCode}:{}),name:name.trim(),birthdate,gender,interestedIn:[...interestedIn],ageMin,ageMax,goal,sports:[...sports],level,routine,homeCity:homeCity.trim(),currentCity:currentCity.trim()||homeCity.trim(),bio,photos:[...photos]};
+ const dating=f.connectionModes.includes('dating');
+ return {...(f.countryCode?{countryCode:f.countryCode}:{}),name:name.trim(),birthdate,gender,connectionModes:[...f.connectionModes],interestedIn:dating?[...interestedIn]:[],ageMin:dating?ageMin:18,ageMax:dating?ageMax:60,goal,sports:[...sports],level,routine,homeCity:homeCity.trim(),currentCity:currentCity.trim()||homeCity.trim(),bio,photos:[...photos]};
 }
 // The preview uses the public shape. Private account fields and birthdate stay out.
 export function onboardingPreview(f,today=new Date()){
- return {id:'onboarding-preview',name:f.name.trim(),age:onboardingAge(f.birthdate,today),gender:f.gender,goal:f.goal,sports:[...f.sports],level:f.level,routine:f.routine,homeCity:f.homeCity.trim(),currentCity:f.currentCity.trim()||f.homeCity.trim(),bio:f.bio,photos:[...f.photos]};
+ return {id:'onboarding-preview',name:f.name.trim(),age:onboardingAge(f.birthdate,today),gender:f.gender,goal:f.goal,connection_modes:[...(f.connectionModes||[])],sports:[...f.sports],level:f.level,routine:f.routine,homeCity:f.homeCity.trim(),currentCity:f.currentCity.trim()||f.homeCity.trim(),bio:f.bio,photos:[...f.photos]};
 }

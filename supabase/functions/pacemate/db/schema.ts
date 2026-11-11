@@ -27,6 +27,9 @@ export const profiles = pgTable(
     ageMin: integer("age_min").notNull().default(18),
     ageMax: integer("age_max").notNull().default(60),
     goal: text().notNull().default(""),
+    connectionModes: text("connection_modes").array().notNull().default(
+      sql`'{}'::text[]`,
+    ),
     sports: text().array().notNull().default(sql`'{}'::text[]`),
     level: text().notNull().default(""),
     routine: text().notNull().default(""),
@@ -135,6 +138,22 @@ export const messages = pgTable("messages", {
     .defaultNow(),
 }, (t) => [index("messages_match_idx").on(t.matchId, t.id)]);
 
+export const runClubs = pgTable("run_clubs", {
+  id: serial().primaryKey(),
+  organizerId: text("organizer_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  name: text().notNull(),
+  city: text().notNull(),
+  description: text().notNull().default(""),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+}, (t) => [index("run_clubs_city_idx").on(sql`lower(${t.city})`, t.id)]);
+
+export const runClubMembers = pgTable("run_club_members", {
+  clubId: integer("club_id").notNull().references(() => runClubs.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.clubId, t.userId] }), index("run_club_members_user_idx").on(t.userId, t.clubId)]);
+
 export const events = pgTable("events", {
   id: serial().primaryKey(),
   hostId: text("host_id").references(() => profiles.id, {
@@ -149,9 +168,18 @@ export const events = pgTable("events", {
   timezone: text().notNull().default("UTC"),
   weekly: boolean().notNull().default(false),
   capacity: integer(),
+  clubId: integer("club_id").references(() => runClubs.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull()
     .defaultNow(),
 }, (t) => [index("events_city_idx").on(t.city)]);
+
+export const runClubMessages = pgTable("run_club_messages", {
+  id: serial().primaryKey(),
+  clubId: integer("club_id").notNull().references(() => runClubs.id, { onDelete: "cascade" }),
+  senderId: text("sender_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  body: text().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("run_club_messages_page_idx").on(t.clubId, t.id)]);
 
 export const rsvps = pgTable("rsvps", {
   eventId: integer("event_id").notNull().references(() => events.id, {

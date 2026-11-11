@@ -28,7 +28,7 @@ The foreground app listens to authenticated Postgres Changes on messages using e
 
 Verify on two real phones/accounts: enable, background the recipient app, send a message, confirm lock-screen delivery and open the conversation from it. Test a new mutual match, permission denial, disabling this device, blocked/unmatched pairs and logout. A physical-device delivery has not been verified by automated tests.
 
-Immediate background work can be interrupted by runtime or vendor failures. Failed deliveries remain pending. The existing authenticated dispatcher can retry them if the previously documented notification cron is configured; without that schedule, automatic retries are not guaranteed. Enabling the optional cron/Vault schedule requires running the reviewed schedule-notifications.sql manually; it was not executed by this agent.
+Immediate background work can be interrupted by runtime or vendor failures. Failed deliveries remain pending. The existing task-secret-protected dispatcher can retry them when scheduled. The SQL scheduler in `supabase/schedule-notifications.sql` requires `pg_cron`, `pg_net` and Vault. As an alternative, `.github/workflows/notification-dispatch.yml` invokes the same endpoint every five minutes and requires `PACEMATE_TASK_SECRET` in both GitHub Actions repository secrets and Supabase Edge Function secrets. Choose only one scheduler. Neither scheduler is active until it is configured and deployed; an external schedule can be delayed and does not guarantee real-time delivery.
 
 The older direct-conversation webhook implementation below remains separate. It is not needed to enable notifications for the current Matches chat flow.
 

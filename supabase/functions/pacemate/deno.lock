@@ -1,0 +1,29 @@
+{
+  "version": "5",
+  "specifiers": {
+    "npm:drizzle-orm@1.0.0-beta.22": "1.0.0-beta.22_postgres@3.4.7",
+    "npm:postgres@3.4.7": "3.4.7"
+  },
+  "npm": {
+    "drizzle-orm@1.0.0-beta.22_postgres@3.4.7": {
+      "integrity": "sha512-F+DZyVIvH0oVKa/w08Cle1xfoH+pc+htIXHG/frnMLG72aby9NYYr9oc+9XvghnoO4umxFItduz0OMmQJMnenw==",
+      "dependencies": [
+        "postgres"
+      ],
+      "optionalPeers": [
+        "postgres"
+      ],
+      "deprecated": true
+    },
+    "postgres@3.4.7": {
+      "integrity": "sha512-Jtc2612XINuBjIl/QTWsV5UvE8UHuNblcO3vVADSrKsrc6RqGX6lOW1cEo3CM2v0XG4Nat8nI+YM7/f26VxXLw=="
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "npm:drizzle-orm@1.0.0-beta.22",
+      "npm:postgres@3.4.7",
+      "npm:web-push@3.6.7"
+    ]
+  }
+}

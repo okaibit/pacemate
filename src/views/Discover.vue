@@ -9,6 +9,7 @@ import {fitDiscoverViewport} from "../discover-viewport.js";
 import ReportDialog from "../components/ReportDialog.vue";
 import {COUNTRIES} from "../money.js";
 import { CITIES } from "../options.js";
+import {preferredDiscoveryIntention} from "../foundation/compatibility.js";
 import Avatar from "../components/Avatar.vue";
 import {requestLocation} from "../location.js";
 
@@ -27,9 +28,10 @@ function loadUpcomingSession(){
 }
 const filtersOpen=ref(false);
 const people = ref([]), loading = ref(true), err = ref(""), busy = ref(false);
-const intentions=[{id:'play',mode:'training_partner',label:'Play'},{id:'friend',mode:'friendship',label:'Friend'},{id:'date',mode:'dating',label:'Date'}];
+const intentions=[{id:'date',mode:'dating',label:'Date'},{id:'play',mode:'training_partner',label:'Play'},{id:'friend',mode:'friendship',label:'Friend'}];
 const enabledIntentions=()=>intentions.filter(i=>(session.profile?.connectionModes??session.profile?.connection_modes??[]).includes(i.mode));
-const intention=ref(enabledIntentions()[0]?.id||'play');
+const defaultIntention=()=>preferredDiscoveryIntention(enabledIntentions().map(i=>i.id));
+const intention=ref(defaultIntention());
 const country=ref("");
 const requestReference=ref("");
 const scope = ref("anywhere"), sport = ref(""), arriving = ref(false);
@@ -86,7 +88,7 @@ async function load() {
   finally { clearTimeout(deadline);if(active&&token===sequence)loading.value = false; }
 }
 watch([scope, sport, arriving, likes,country,intention], load);
-watch(()=>session.profile?.connectionModes??session.profile?.connection_modes,()=>{const enabled=enabledIntentions();if(!enabled.some(i=>i.id===intention.value))intention.value=enabled[0]?.id||'play';},{deep:true,immediate:true});
+watch(()=>session.profile?.connectionModes??session.profile?.connection_modes,()=>{const enabled=enabledIntentions();if(!enabled.some(i=>i.id===intention.value))intention.value=defaultIntention();},{deep:true,immediate:true});
 onMounted(()=>{load();loadUpcomingSession();api("/api/billing/config").then(b=>plus.value=b.active).catch(()=>{});});
 
 async function swipe(liked) {

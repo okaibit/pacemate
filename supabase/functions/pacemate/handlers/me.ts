@@ -17,6 +17,11 @@ export default handle(async (req) => {
 
   if (req.method === "GET") {
     const [p] = await db.select().from(profiles).where(eq(profiles.id, user.id));
+    if (p) await rows(
+      `UPDATE public.profiles SET last_active_at=now()
+       WHERE id=$1 AND (last_active_at IS NULL OR last_active_at<now()-interval '1 day')`,
+      [user.id],
+    );
     const isAdmin = p ? (await rows('SELECT 1 FROM public.app_admins WHERE user_id=$1',[user.id])).length > 0 : false;
     return json({ user: { id: user.id, email: user.email }, adultTermsAccepted: hasAdultTermsAcknowledgement(user), profile: p ? {...own(p),isAdmin} : null });
   }
@@ -40,8 +45,19 @@ export default handle(async (req) => {
     if (age < 18) throw new HttpError(422, "You must be 18 or older to use Pacemate.");
     if (age > 100) throw new HttpError(422, "Enter a valid date of birth.");
 
-    const interestedIn = Array.isArray(b.interestedIn) ? b.interestedIn.filter((g: string) => (GENDERS as readonly string[]).includes(g)) : [];
-    if (!interestedIn.length) throw new HttpError(422, "Choose who you want to meet.");
+    const allowedModes = ["dating", "training_partner", "friendship"];
+    const legacyGoal = typeof b.goal === "string" ? b.goal : previous?.goal || "";
+    const legacyModes = previous?.connectionModes?.length ? previous.connectionModes :
+      ["A relationship", "Something casual"].includes(legacyGoal) ? ["dating"] :
+      legacyGoal === "Friends in a new city" ? ["friendship"] : ["training_partner"];
+    const connectionModes: string[] = Array.isArray(b.connectionModes)
+      ? [...new Set(b.connectionModes.filter((mode: unknown) => typeof mode === "string" && allowedModes.includes(mode)))]
+      : legacyModes;
+    if (!connectionModes.length || connectionModes.length > 3) throw new HttpError(422, "Choose at least one connection intention.");
+    const datingEnabled = connectionModes.includes("dating");
+    const interestedIn = datingEnabled && Array.isArray(b.interestedIn)
+      ? b.interestedIn.filter((g: string) => (GENDERS as readonly string[]).includes(g)) : [];
+    if (datingEnabled && !interestedIn.length) throw new HttpError(422, "Choose who you want to date.");
     const sports = Array.isArray(b.sports) ? [...new Set(b.sports.filter((s: string) => (SPORTS as readonly string[]).includes(s)))] as string[] : [];
     if (!sports.length) throw new HttpError(422, "Pick at least one sport.");
     if (sports.length > 8) throw new HttpError(422, "Pick up to 8 sports.");
@@ -51,8 +67,8 @@ export default handle(async (req) => {
       const found=await rows("SELECT name FROM storage.objects WHERE bucket_id='photos' AND name=ANY($1::text[])",[arrayParam(photos)]);
       if(found.length!==photos.length)throw new HttpError(422,"A photo is no longer available. Upload it again.");
     }
-    const ageMin=Number(b.ageMin??18),ageMax=Number(b.ageMax??60);
-    if(!Number.isInteger(ageMin)||!Number.isInteger(ageMax)||ageMin<18||ageMax>99||ageMax<ageMin)throw new HttpError(422,"Choose an age range between 18 and 99.");
+    const ageMin=datingEnabled?Number(b.ageMin??18):18,ageMax=datingEnabled?Number(b.ageMax??60):60;
+    if(datingEnabled&&(!Number.isInteger(ageMin)||!Number.isInteger(ageMax)||ageMin<18||ageMax>99||ageMax<ageMin))throw new HttpError(422,"Choose an age range between 18 and 99.");
     const homeCity = canonCity(str(b.homeCity, 60, "Home city", true));
     const currentCity = canonCity(str(b.currentCity, 60, "Current city")) || homeCity;
     // Missing trip fields keep the saved trip; null or empty values clear it.
@@ -73,6 +89,7 @@ export default handle(async (req) => {
       birthdate,
       gender: pick(b.gender, GENDERS, "gender", true) as string,
       interestedIn, ageMin, ageMax,
+      connectionModes,
       goal: pick(b.goal, GOALS, "goal", true) as string,
       sports,
       level: pick(b.level, LEVELS, "level") as string,

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ONBOARDING_STEPS,onboardingAge,validateOnboardingStep,onboardingPayload,onboardingPreview} from '../src/onboarding.js';
+import {ONBOARDING_STEPS,CONNECTION_MODES,onboardingAge,validateOnboardingStep,onboardingPayload,onboardingPreview} from '../src/onboarding.js';
 const today=new Date('2026-11-08T12:00:00Z');
-const form=()=>({name:' Alex ',birthdate:'1998-02-28',gender:'Man',interestedIn:['Woman'],ageMin:18,ageMax:45,goal:'A training partner',sports:['Running'],level:'',routine:'',homeCity:' Abuja ',currentCity:'',bio:'Sunday runs.',photos:['member-a/photo.jpg']});
+const form=()=>({name:' Alex ',birthdate:'1998-02-28',gender:'Man',connectionModes:['dating'],interestedIn:['Woman'],ageMin:18,ageMax:45,goal:'A training partner',sports:['Running'],level:'',routine:'',homeCity:' Abuja ',currentCity:'',bio:'Sunday runs.',photos:['member-a/photo.jpg']});
 test('onboarding rejects invalid dates and underage birthdays at the UTC boundary',()=>{
  assert.equal(onboardingAge('2008-11-08',today),18);assert.equal(onboardingAge('2008-11-09',today),17);
  assert.equal(onboardingAge('2000-02-30',today),null);
@@ -33,4 +33,23 @@ test('save payload uses existing handler fields and isolates arrays from later e
  const p=onboardingPayload(f);assert.equal(p.birthdate,'1998-02-28');assert.equal(p.currentCity,'Abuja');
  for(const key of ['id','email','height'])assert.ok(!Object.hasOwn(p,key));
  f.sports.push('Gym');assert.deepEqual(p.sports,['Running']);
+});
+test('onboarding presents Date first and requires an explicit intention without opting into Date',()=>{
+ assert.deepEqual(CONNECTION_MODES,['dating','training_partner','friendship']);
+ const f=form();f.connectionModes=[];
+ assert.match(validateOnboardingStep('connectionModes',f),/at least one/);
+ f.connectionModes=['training_partner'];
+ assert.equal(validateOnboardingStep('interestedIn',f),'');
+ assert.equal(validateOnboardingStep('ages',f),'');
+ assert.notEqual(validateOnboardingStep('goal',{...f,goal:'A relationship'}),'');
+ const payload=onboardingPayload(f);
+ assert.deepEqual(payload.connectionModes,['training_partner']);
+ assert.deepEqual(payload.interestedIn,[]);assert.equal(payload.ageMin,18);assert.equal(payload.ageMax,60);
+});
+test('Date preferences remain required only when Date is selected and are included in the preview',()=>{
+ const f=form();f.interestedIn=[];
+ assert.match(validateOnboardingStep('interestedIn',f),/at least one/);
+ f.interestedIn=['Woman'];
+ assert.deepEqual(onboardingPreview(f,today).connection_modes,['dating']);
+ assert.deepEqual(onboardingPayload(f).connectionModes,['dating']);
 });

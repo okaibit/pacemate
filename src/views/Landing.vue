@@ -54,10 +54,10 @@ onMounted(async () => {
       <img class="hero-image" src="/images/hero.jpg" alt="Two people enjoying a run together by the sea" width="900" height="1612" fetchpriority="high">
       <div class="hero-shade" aria-hidden="true"></div>
       <div class="wrap wide hero-content">
-        <div class="hero-copy"><p class="audience">Training partners. Friends. Dating.</p>
-          <h1>Find someone<br>who shares<br>your <em>pace.</em></h1>
-          <p class="hero-line">Meet people through the sports you love, nearby or on your next trip.</p>
-          <RouterLink class="btn coral join-button" :to="primaryTo">{{ session.user ? 'Discover people' : 'Join free' }} <span aria-hidden="true">↗</span></RouterLink>
+        <div class="hero-copy"><p class="audience">Sports dating, at your pace.</p>
+          <h1>Date someone<br>who shares<br>your <em>pace.</em></h1>
+          <p class="hero-line">Meet through the sports you love, shared interests and local activities. Play and friendship are here too.</p>
+          <RouterLink class="btn coral join-button" :to="primaryTo">{{ session.user ? 'Discover dates' : 'Find your person' }} <span aria-hidden="true">↗</span></RouterLink>
           <p class="hero-note">Unlimited likes, matches and messages. Free. 18+.</p>
           <p v-if="!session.user" class="member-link">Already a member? <RouterLink to="/login">Log in</RouterLink></p>
         </div>
@@ -68,8 +68,8 @@ onMounted(async () => {
     <div v-if="cities.length || stats || showCounts" class="community-strip"><dl class="wrap wide community-numbers"><div v-if="cities.length"><dt>Cities with sessions</dt><dd>{{ fmt(cities.length) }}</dd></div><div v-if="stats"><dt>Sessions</dt><dd>{{ fmt(stats.events) }}</dd></div><template v-if="showCounts"><div><dt>Members</dt><dd>{{ fmt(stats.members) }}</dd></div><div><dt>Matches</dt><dd>{{ fmt(stats.matches) }}</dd></div></template></dl><div v-if="cities.length" class="wrap wide community-cities"><span v-for="name in cities.slice(0,8)" :key="name">{{ name }}</span><span v-if="cities.length>8">+{{ cities.length-8 }} more</span></div></div>
     <div class="sports-ticker" aria-hidden="true"><div class="sports-track"><div v-for="copy in 2" :key="copy" class="sports-group"><span v-for="sport in sports" :key="sport">{{ sport }}<i>✦</i></span></div></div></div>
     <section id="profiles" class="profiles-section">
-      <div class="wrap wide"><div class="section-head"><h2>Your kind<br>of <em>connection.</em></h2><p>Find a training partner, make a friend,<br>or see where a shared sport takes you.</p></div>
-        <div class="connection-modes" aria-label="Connection modes"><span>Training partner</span><span>Friendship</span><span>Dating</span></div>
+      <div class="wrap wide"><div class="section-head"><h2>Meet someone<br>who gets your <em>life.</em></h2><p>Dating leads. Shared sports make meeting<br>feel more natural. Play and friendship remain options.</p></div>
+        <div class="connection-modes" aria-label="Connection modes"><span>Dating</span><span>Training partner</span><span>Friendship</span></div>
         <div class="profile-rail">
           <figure v-for="p in people" :key="p.img" class="person-card"><img :src="'/images/'+p.img+'.jpg'" alt="" loading="lazy" width="640" height="794"><span v-if="p.shared" class="shared-sport">↗ {{ p.shared }}</span><figcaption><h3>{{ p.name }} <span>{{ p.city }}</span></h3><div class="sport-pills"><span>{{ p.sport }}</span><span>{{ p.routine }}</span></div></figcaption></figure>
         </div>
@@ -78,11 +78,11 @@ onMounted(async () => {
     </section>
 
     <section id="how" class="connection-section"><div class="wrap wide connection-grid">
-      <div class="connection-copy"><span class="step-index">01 / The connection</span><h2>One like.<br>A lot in <em>common.</em></h2><p>Choose the connections you’re open to. When you both like each other, the conversation opens. Unlimited likes, matching and messaging stay free.</p><RouterLink class="text-link" :to="primaryTo">See who you click with <span aria-hidden="true">↗</span></RouterLink></div>
+      <div class="connection-copy"><span class="step-index">01 / The connection</span><h2>A better way<br>to start <em>dating.</em></h2><p>Meet through the sports and interests you share. When you both like each other, the conversation opens. Play and friendship connections are available too.</p><RouterLink class="text-link" :to="primaryTo">Meet someone new <span aria-hidden="true">↗</span></RouterLink></div>
       <div class="conversation-demo" aria-label="Illustrative match and chat preview"><div class="demo-pair"><img src="/images/p1.jpg" alt="" loading="lazy"><span aria-hidden="true">♥</span><img src="/images/p4.jpg" alt="" loading="lazy"></div><p class="match-title">Found your pace.</p><div class="common-tags"><span>Running</span><span>Early risers</span></div><div class="chat-example"><div class="chat-incoming">Sunrise run, then coffee? <span>07:12</span></div><div class="chat-outgoing">You had me at coffee. <span>07:13</span></div><div class="chat-incoming">Saturday? I know a good route.<span>07:13</span></div></div><small class="demo-caption">Example conversation</small></div>
     </div></section>
 
-    <section id="events" class="meet-section"><div class="wrap wide"><div class="meet-story"><div class="meet-image"><img src="/images/date.jpg" alt="Two people sharing coffee after a workout" loading="lazy" width="1400" height="781"></div><div class="meet-copy"><span class="step-index">02 / The first plan</span><h2>Less “hey.”<br>More <em>“let’s go.”</em></h2><p>A run, a ride, a coffee after.<br>Find a group session in your city, or explore one where you’re heading next.</p><a class="text-link" href="#sessions">Find a session <span aria-hidden="true">↓</span></a></div></div>
+    <section id="events" class="meet-section"><div class="wrap wide"><div class="meet-story"><div class="meet-image"><img src="/images/date.jpg" alt="Two people sharing coffee after a workout" loading="lazy" width="1400" height="781"></div><div class="meet-copy"><span class="step-index">02 / A way to meet</span><h2>Make the first plan<br>about something <em>shared.</em></h2><p>A run, a ride, or coffee after.<br>Find local sessions and activities that give a good conversation somewhere to begin.</p><a class="text-link" href="#sessions">Explore activities <span aria-hidden="true">↓</span></a></div></div>
       <div id="sessions" class="sessions"><div class="sessions-heading"><h3>Better together.</h3><RouterLink :to="session.user ? '/app/events' : '/signup'">{{ shown.length ? 'All sessions' : 'Host a session' }} <span aria-hidden="true">↗</span></RouterLink></div>
         <div v-if="regions.length" class="session-filters"><select v-model="region" @change="city=''" aria-label="Region"><option value="">Worldwide</option><option v-for="r in regions" :key="r" :value="r">{{ r }}</option></select><select v-model="city" aria-label="City"><option value="">All cities</option><option v-for="c in regionCities" :key="c" :value="c">{{ c }}</option></select></div>
         <div v-if="shown.length" class="event-grid"><RouterLink v-for="e in shown" :key="e.id" :to="session.user ? '/app/events' : '/signup'" class="event-card"><time :datetime="e.startsAt">{{ formatEventTime(e.startsAt,e.timezone).day }} <span>{{ formatEventTime(e.startsAt,e.timezone).time }}</span></time><h4>{{ e.title }}</h4><p>{{ e.city }} · {{ e.kind }}</p><span class="event-arrow" aria-hidden="true">↗</span></RouterLink></div>
@@ -99,7 +99,7 @@ onMounted(async () => {
 
     <section id="faq" class="wrap wide faq"><div><h2>A few<br>good questions.</h2><RouterLink class="text-link" to="/help">All questions ↗</RouterLink></div><div class="qa"><details v-for="f in landingFaq" :key="f.q"><summary>{{ f.q }}<span aria-hidden="true">+</span></summary><p>{{ f.a }}</p></details></div></section>
 
-    <section class="closing"><div class="wrap wide closing-inner"><h2>Your next chapter<br>starts with a <em>hello.</em></h2><RouterLink class="btn coral join-button" :to="primaryTo">{{ session.user ? 'Discover people' : 'Join free' }} <span aria-hidden="true">↗</span></RouterLink><p>Find someone who shares your pace.</p></div></section>
+    <section class="closing"><div class="wrap wide closing-inner"><h2>Your next chapter<br>starts with a <em>hello.</em></h2><RouterLink class="btn coral join-button" :to="primaryTo">{{ session.user ? 'Discover dates' : 'Find your person' }} <span aria-hidden="true">↗</span></RouterLink><p>Meet through the things you love doing.</p></div></section>
   </div>
   <SiteFooter />
 </template>

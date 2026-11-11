@@ -2,7 +2,7 @@
 import SiteFooter from "../components/SiteFooter.vue";
 defineProps({ doc: String });
 const CONTACT = "trypacemate@gmail.com";
-const UPDATED = "7 November 2026";
+const UPDATED = "11 November 2026";
 </script>
 
 <template>
@@ -15,12 +15,12 @@ const UPDATED = "7 November 2026";
       <ul>
         <li><b>Account:</b> your email address and a securely hashed password, or your sign-in provider ID.</li>
         <li><b>Profile:</b> name, date of birth, gender, who you want to meet, sports, level, training routine, work style, cities, an optional upcoming trip (city and arrival date only), bio and photos.</li>
-        <li><b>Activity:</b> likes and passes, matches, messages, event RSVPs, events you host, and blocks and reports.</li>
+        <li><b>Activity:</b> likes and passes, matches, messages, event RSVPs, events you host, blocks and reports, and the date your account was last active. The last-active date is refreshed at most once per day when you use the app.</li>
         <li><b>Community:</b> session conversations, optional verification selfies, notification preferences and push subscriptions. If you subscribe, we retain payment-provider customer and subscription references; card details are handled by Stripe.</li>
         <li><b>Wellbeing:</b> daily check-ins (areas of life, mood, sleep hours, private notes), workouts you log, answers to the question of the day, and challenges you join.</li>
       </ul>
       <h2>How we use it</h2>
-      <p>We use your data to run Pacemate: to show your profile to members who fit your preferences, create matches, deliver messages, list events, and keep the community safe. We do not sell your data or use it for third-party advertising.</p>
+      <p>We use your data to run Pacemate: to show your profile to members who fit your preferences, create matches, deliver messages, list events, keep the community safe, and understand whether members return to the app. We do not sell your data or use it for third-party advertising.</p>
       <h2>Who can see what</h2>
       <p>Other members see your public profile: name, age (never your date of birth), gender, sports, level, routine, work style, cities, bio and photos. You can also share a future city and arrival date; other members can see it, and you can remove it at any time. Match conversations and shared chat photos are available to the matched members. Read receipts show when messages have been acknowledged. Private photos use expiring links, but recipients may save copies. Members can see who is going to an event. Your check-ins, mood, sleep and notes are private to you. Your matches can see workouts you log and send kudos. Your recent answer to the question of the day shows on your profile. If you join a challenge, your name, first photo and progress appear on its leaderboard.</p>
       <h2>Verification and moderation</h2>

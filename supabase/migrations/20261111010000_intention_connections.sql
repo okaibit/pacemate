@@ -37,7 +37,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.conversations'::regclass AND conname='conversations_id_fkey' AND contype='f' AND convalidated AND pg_get_constraintdef(oid)='FOREIGN KEY (id) REFERENCES matches(id) ON DELETE CASCADE')
     OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.messages'::regclass AND conname='messages_match_id_matches_id_fkey' AND contype='f' AND convalidated AND pg_get_constraintdef(oid)='FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE')
     OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.messages'::regclass AND conname='messages_conversation_id_fkey' AND contype='f' AND convalidated AND pg_get_constraintdef(oid)='FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE')
-    OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.messages'::regclass AND conname='direct_chat_match_consistent' AND contype='c' AND convalidated AND pg_get_constraintdef(oid)='CHECK (conversation_id = match_id)') THEN
+    OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.messages'::regclass AND conname='direct_chat_match_consistent' AND contype='c' AND convalidated AND regexp_replace(pg_get_constraintdef(oid), '[[:space:]()]', '', 'g')='CHECKconversation_id=match_id') THEN
     RAISE EXCEPTION 'Unexpected direct-chat foreign keys or equality check; stop and reconcile';
   END IF;
 

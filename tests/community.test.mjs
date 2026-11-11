@@ -45,6 +45,51 @@ test('an authenticated member cannot grant themselves administrator access',asyn
   assert.ok(calls.some(call=>call.sql.includes('app_admins')&&call.params[0]===member.id));
   assert.ok(!calls.some(call=>/UPDATE|INSERT|DELETE/.test(call.sql)));
 });
+test('the admin overview returns aggregate intention and retention metrics only',async()=>{
+ sqlHandler=async sql=>sql.includes('app_admins')?[{}]:sql.includes('WITH profile_scores')?[{
+  total_profiles:12,date_enabled_profiles:7,complete_profiles:4,complete_date_profiles:3,
+  active_7d:5,active_30d:8,date_likes_30d:9,date_matches_30d:2,active_date_matches:3,
+ }]:[];
+ const response=await request('/api/admin/metrics');assert.equal(response.status,200,await response.clone().text());
+ const result=await response.json();assert.equal(result.metrics.date_enabled_profiles,7);
+ assert.deepEqual(Object.keys(result.metrics).sort(),['active_7d','active_30d','complete_date_profiles','complete_profiles','date_enabled_profiles','date_likes_30d','date_matches_30d','active_date_matches','total_profiles'].sort());
+ const aggregate=calls.find(call=>call.sql.includes('WITH profile_scores'));
+ assert.ok(aggregate);assert.match(aggregate.sql,/last_active_at>=now\(\)-interval '7 days'/);
+});
+test('run club creation makes its creator the organizer and first member',async()=>{
+ sqlHandler=async sql=>sql.includes('feature_limits')?[{hits:1}]:sql.includes('INSERT INTO public.run_clubs')?[{id:31,name:'Lagos Saturday Runners',city:'Lagos',description:'Easy weekly runs.',createdAt:'2026-11-11T00:00:00Z'}]:[];
+ const response=await request('/api/clubs','POST',{name:'Lagos Saturday Runners',city:'Lagos',description:'Easy weekly runs.'});
+ assert.equal(response.status,201);assert.equal((await response.json()).club.id,31);
+ const create=calls.find(call=>call.sql.includes('INSERT INTO public.run_clubs'));
+ assert.deepEqual(create.params,[member.id,'Lagos Saturday Runners','Lagos','Easy weekly runs.']);
+ assert.ok(calls.some(call=>call.sql.includes('INSERT INTO public.run_club_members')&&call.params[0]===31&&call.params[1]===member.id));
+});
+test('club chat rejects nonmembers and filters messages from blocked or suspended members',async()=>{
+ sqlHandler=async sql=>sql.includes('SELECT 1 FROM public.run_club_members cm')?[]:[];
+ const denied=await request('/api/clubs/31/messages');assert.equal(denied.status,403);
+ assert.ok(!calls.some(call=>call.sql.includes('FROM public.run_club_messages')));
+ calls=[];
+ sqlHandler=async sql=>sql.includes('SELECT 1 FROM public.run_club_members cm')?[{}]:sql.includes('FROM public.run_club_messages')?[]:[];
+ const allowed=await request('/api/clubs/31/messages');assert.equal(allowed.status,200);
+ assert.match(calls.find(call=>call.sql.includes('FROM public.run_club_messages')).sql,/NOT p\.suspended/);
+ assert.match(calls.find(call=>call.sql.includes('FROM public.run_club_messages')).sql,/public\.blocks/);
+ assert.match(calls.find(call=>call.sql.includes('SELECT 1 FROM public.run_club_members cm')).sql,/public\.blocks/);
+});
+test('run club archiving is organizer-scoped and preserves stored club data',async()=>{
+ sqlHandler=async sql=>sql.includes('UPDATE public.run_clubs SET archived_at')?[{id:31}]:[];
+ const response=await request('/api/clubs/31/archive','DELETE');assert.equal(response.status,200);
+ assert.deepEqual(await response.json(),{archived:true});
+ const archive=calls.find(call=>call.sql.includes('UPDATE public.run_clubs SET archived_at'));
+ assert.deepEqual(archive.params,[31,member.id]);
+ assert.match(archive.sql,/organizer_id=\$2/);
+ assert.doesNotMatch(archive.sql,/DELETE FROM/);
+});
+test('profile bootstrap refreshes the return-visit marker at most once per day',async()=>{
+ const response=await request('/api/me');assert.equal(response.status,200);
+ const activityWrite=calls.find(call=>call.sql.includes('UPDATE public.profiles SET last_active_at=now()'));
+ assert.deepEqual(activityWrite?.params,[member.id]);
+ assert.match(activityWrite?.sql||'',/last_active_at IS NULL OR last_active_at<now\(\)-interval '1 day'/);
+});
 test('suspended members cannot use protected community workflows',async()=>{
   profile.suspended=true;
   const response=await request('/api/notifications');assert.equal(response.status,403);

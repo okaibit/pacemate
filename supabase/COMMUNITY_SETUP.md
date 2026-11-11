@@ -82,14 +82,15 @@ Store the private key only in Supabase secrets. Settings exposes only the public
 
 ### Schedule the dispatcher
 
-Enable Supabase's `pg_cron`, `pg_net` and Vault facilities in the dashboard. In Vault, create two secrets:
+The protected endpoint is `POST https://clwgczzpucjdguyfctcg.supabase.co/functions/v1/pacemate/api/tasks/dispatch`. It requires the `x-task-secret` header to match the Edge Function secret `PACEMATE_TASK_SECRET` (minimum 32 characters).
 
-- `pacemate_dispatch_url`: `https://clwgczzpucjdguyfctcg.supabase.co/functions/v1/pacemate/api/tasks/dispatch`
-- `pacemate_task_secret`: exactly the same value as the Edge Function's `PACEMATE_TASK_SECRET`.
+For the current test project, the repository includes `.github/workflows/notification-dispatch.yml`, which can call this endpoint every five minutes. Configure the same generated secret as a GitHub Actions repository secret named `PACEMATE_TASK_SECRET` and as a Supabase Edge Function secret. Run the workflow manually to verify it. Scheduled runs stay disabled until the GitHub Actions repository variable `PACEMATE_NOTIFICATION_DISPATCH_ENABLED` is set to `true`; set it only after the manual run succeeds. Scheduled GitHub runs may be delayed, so they are not a real-time guarantee.
 
-Then run `supabase/schedule-notifications.sql` in SQL Editor. It uses Vault references rather than putting credentials into the schedule. The dispatcher handles three notifications per run, leases work, retries temporary failures at most five times per channel, and expires delivery after 24 hours. Increase throughput only after checking provider limits and function runtime logs.
+Alternatively, an approved database scheduler can use Supabase `pg_cron`, `pg_net` and Vault. Create Vault secrets named `pacemate_dispatch_url` and `pacemate_task_secret`, then run `supabase/schedule-notifications.sql` only after separately reviewing and approving the hosted SQL change. Do not enable both schedulers, since they can create unnecessary competing work.
 
-Without the schedule, the inbox still works, but email, push, timed reminders and periodic file cleanup do not run. This is an activation requirement, not a completed delivery test.
+The dispatcher processes up to three notifications per run, leases claimed work, retries temporary failures at most five times per channel, and expires pending delivery after 24 hours. Increase throughput only after checking provider limits and function runtime logs.
+
+Without a recurring scheduler, in-app notifications still work, and immediate social push is attempted in the Edge Function background. Email, timed reminders, periodic cleanup and automatic retries of failed queued deliveries are not guaranteed.
 
 ## 6. Optional billing
 

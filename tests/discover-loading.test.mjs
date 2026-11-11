@@ -8,6 +8,7 @@ const {descriptor}=parse(readFileSync('src/views/Discover.vue','utf8'));
 const script=compileScript(descriptor,{id:'discover-loading-fixture'}).content;
 const bundle=await rolldown({input:'discover-fixture',plugins:[{name:'offline-discover',resolveId(id){
  if(id==='../discover-viewport.js')return '\0viewport';
+ if(id==='../foundation/compatibility.js')return '\0fixture:../foundation/compatibility.js';
  if(id==='discover-fixture')return '\0discover';
  if(['vue','vue-router','../api.js','../auth.js','../location.js','../money.js','../options.js'].includes(id)||id.endsWith('.vue'))return '\0fixture:'+id;
 },load(id){
@@ -20,6 +21,7 @@ const bundle=await rolldown({input:'discover-fixture',plugins:[{name:'offline-di
  if(id==='\0fixture:../location.js')return 'export const requestLocation=async()=>({});';
  if(id==='\0fixture:../money.js')return 'export const COUNTRIES=[];';
  if(id==='\0fixture:../options.js')return 'export const CITIES=[];';
+ if(id==='\0fixture:../foundation/compatibility.js')return 'export const preferredDiscoveryIntention=enabled=>enabled.includes("date")?"date":enabled[0]||"play";';
  if(id.startsWith('\0fixture:'))return 'export default {};';
 }}]});
 const output=await bundle.generate({format:'esm',codeSplitting:false});await bundle.close();

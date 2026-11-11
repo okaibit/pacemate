@@ -6,7 +6,7 @@ const routes = [
   ["chat", /^\/api\/matches\/(\d+)\/chat$/, ["id"]],
   [
     "admin",
-    /^\/api\/admin(?:\/(reports|blocks|verifications|members|actions)(?:\/([^/]+))?)?$/,
+    /^\/api\/admin(?:\/(metrics|reports|blocks|verifications|members|actions)(?:\/([^/]+))?)?$/,
     ["section", "id"],
   ],
   ["verification", /^\/api\/verification$/, []],
@@ -37,6 +37,7 @@ const routes = [
   ["matches", /^\/api\/matches(?:\/(\d+))?$/, ["id"]],
   ["photos", /^\/api\/photos(?:\/([^/]+)\/([^/]+))?$/, ["user", "file"]],
   ["events", /^\/api\/events(?:\/(\d+)(?:\/(rsvp))?)?$/, ["id", "action"]],
+  ["clubs", /^\/api\/clubs(?:\/(\d+)(?:\/(join|membership|messages|archive))?)?$/, ["id", "action"]],
   ["safety", /^\/api\/(?:block|report)$/, []],
   [
     "today",

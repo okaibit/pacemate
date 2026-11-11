@@ -22,6 +22,7 @@ const loaders = {
   matches: () => import("./handlers/matches.ts"),
   photos: () => import("./handlers/photos.ts"),
   events: () => import("./handlers/events.ts"),
+  clubs: () => import("./handlers/clubs.ts"),
   safety: () => import("./handlers/safety.ts"),
   today: () => import("./handlers/today.ts"),
 };

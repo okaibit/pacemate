@@ -1,0 +1,36 @@
+name: PaceMate notification dispatch
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pacemate-notification-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    if: github.event_name == 'workflow_dispatch' || vars.PACEMATE_NOTIFICATION_DISPATCH_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Call the protected staging dispatcher
+        env:
+          PACEMATE_TASK_SECRET: ${{ secrets.PACEMATE_TASK_SECRET }}
+        run: |
+          if [ -z "$PACEMATE_TASK_SECRET" ]; then
+            echo "Repository secret PACEMATE_TASK_SECRET is not configured."
+            exit 1
+          fi
+
+          curl --silent --show-error --fail-with-body \
+            --max-time 65 \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "x-task-secret: $PACEMATE_TASK_SECRET" \
+            --data '{}' \
+            "https://yozguwigcvzcdcpyvwvt.supabase.co/functions/v1/pacemate/api/tasks/dispatch"

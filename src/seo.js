@@ -2,16 +2,16 @@
 // (per-page meta tags) and vite.config.js (structured data + crawlable HTML).
 export const SITE_URL = "https://trypacemate.omejeelijahokai02.workers.dev";
 export const SITE_NAME = "Pacemate";
-export const DEFAULT_TITLE = "Pacemate: training partners, friendship and dating";
+export const DEFAULT_TITLE = "Pacemate: sports dating, at your pace";
 export const DEFAULT_DESCRIPTION =
-  "Find training partners, friends and dates through shared sports. Discover local sessions, explore travel destinations and connect with free likes, matches and messages.";
+  "Meet dates through shared sports, interests and local activities. Discover people nearby or while travelling, with separate options for friendship and training partners.";
 
 // Written as direct question/answer pairs so search engines and AI answer
 // engines can quote them.
 export const FAQ = [
   {
     q: "What is Pacemate?",
-    a: "Pacemate connects adults through fitness, sports, friendship, dating and travel. Choose training partner, friendship or dating connections, discover people who share your interests, and meet at local group sessions.",
+    a: "Pacemate is a sports dating app for adults. Meet dates through shared sports, interests and local activities. You can also choose friendship or training partner connections.",
   },
   {
     q: "Is Pacemate free?",
@@ -19,7 +19,7 @@ export const FAQ = [
   },
   {
     q: "How does Pacemate match people?",
-    a: "Choose your sports, experience, availability and the connection modes you are open to: training partner, friendship or dating. Discover people nearby or in a destination city. When two people like each other, they match and can message for free.",
+    a: "Choose your sports, interests and the connections you are open to. Date through shared activities, or choose friendship and training partner connections. When two people like each other, they match and can message for free.",
   },
   {
     q: "Which sports does Pacemate support?",
@@ -52,7 +52,7 @@ export const DESCRIPTIONS = {
   "/privacy": "How Pacemate collects, uses and protects your personal data.",
   "/terms": "The terms of service for using Pacemate.",
   "/safety": "Safety tips for meeting people from Pacemate, on and off the app.",
-  "/signup": "Create a free Pacemate profile to find training partners, friends and dates who share your sports.",
+  "/signup": "Create a free Pacemate profile to meet dates through shared sports and interests. Friendship and training partner connections are also available.",
   "/login": "Log in to Pacemate.",
 };
 

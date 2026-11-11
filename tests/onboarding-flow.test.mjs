@@ -14,6 +14,7 @@ const built=await rolldown({input:'onboarding-fixture',plugins:[{name:'onboardin
  if(id==='../money.js')return resolve('src/money.js');
  if(id==='../options.js')return resolve('src/options.js');
  if(id==='../onboarding.js')return resolve('src/onboarding.js');
+ if(id==='../foundation/compatibility.js')return resolve('src/foundation/compatibility.js');
  if(id==='../location.js')return '\0fixture:location';
 },load(id){
  if(id==='\0onboarding')return script;
@@ -27,7 +28,7 @@ const built=await rolldown({input:'onboarding-fixture',plugins:[{name:'onboardin
 const output=await built.generate({format:'esm'});await built.close();
 const {default:Onboarding}=await import('data:text/javascript;base64,'+Buffer.from(output.output[0].code).toString('base64'));
 test.beforeEach(()=>{fixture.session.user={id:'member-a'};fixture.session.profile=null;fixture.pending=[];fixture.navigation=[];fixture.dispose=[];fixture.locations=[];});
-function view(){const result=Onboarding.setup({}, {expose(){}});Object.assign(result.f,{name:'Alex',birthdate:'1998-01-01',gender:'Man',interestedIn:['Woman'],goal:'A training partner',sports:['Running'],homeCity:'Abuja'});return result;}
+function view(){const result=Onboarding.setup({}, {expose(){}});Object.assign(result.f,{name:'Alex',birthdate:'1998-01-01',gender:'Man',connectionModes:['training_partner'],interestedIn:['Woman'],goal:'A training partner',sports:['Running'],homeCity:'Abuja'});return result;}
 function review(v){v.step.value=ONBOARDING_STEPS.length-1;}
 test('answers advance to an unsaved preview; only the final action saves once',async()=>{
  const v=view();while(v.cur.value.key!=='review')await v.next();

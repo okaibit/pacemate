@@ -9,15 +9,19 @@ export const COMPATIBILITY_WEIGHTS = Object.freeze({
   intentions: 5,
 });
 export const MODES = Object.freeze({
-  training_partner: "Training partner",
-  friendship: "Friendship",
-  dating: "Dating",
+  dating: "Date",
+  training_partner: "Play",
+  friendship: "Friend",
 });
 export const INTENTION_MODE = Object.freeze({
   play: "training_partner",
   friend: "friendship",
   date: "dating",
 });
+// Prefer Date when it is enabled; never enable an intention on a member's behalf.
+export function preferredDiscoveryIntention(enabledIntentions = []) {
+  return enabledIntentions.includes("date") ? "date" : enabledIntentions[0] || "play";
+}
 export const DAYS = [
   "Monday",
   "Tuesday",
@@ -124,7 +128,9 @@ export function computeCompatibility(viewer, candidate, intention = null) {
     )
   ) reasons.push(`Both enjoy ${interest}`);
   reasons.push(
-    `Both open to ${modes.map((m) => MODES[m].toLowerCase()).join(" and ")}`,
+    `Both open to ${modes.map((mode) =>
+      mode === "dating" ? "Date" : mode === "training_partner" ? "Play" : "Friend"
+    ).join(" and ")}`,
   );
   const factors = {
     sports: overlap(a.map((s) => s.sport_id), b.map((s) => s.sport_id)),

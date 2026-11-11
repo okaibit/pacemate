@@ -13,6 +13,7 @@ The hosted migration ledger was reported empty while the database already contai
 - Reconcile the empty migration ledger. Do not mark historical migrations applied unless object-by-object evidence supports that exact history. Do not replay historical migrations against the populated project.
 - Verify a recent usable database backup/export, restore information, and a tested restore path. Include Storage objects separately because database backups do not restore them.
 - Verify hosted RLS, grants, Storage bucket privacy/policies, Realtime membership, notification triggers/functions, webhook configuration, scheduled jobs, and deployed Edge Function versions.
+- For notification delivery, verify provider secret names and choose one dispatcher: the existing SQL scheduler (requires hosted `pg_cron`, `pg_net`, Vault and an approved SQL setup), or the repository's external GitHub Actions scheduler (requires the same `PACEMATE_TASK_SECRET` in Supabase and GitHub Actions). Do not configure both schedules.
 - Review required secret names and purpose without printing or copying secret values into Git. Billing is not integrated; do not configure Stripe or run billing proposals.
 - Approve a maintenance window and pause all swipe writes before the uniqueness cutover. Ensure the old backend cannot accept swipe requests during the migration.
 
@@ -27,6 +28,16 @@ The hosted migration ledger was reported empty while the database already contai
 7. Deploy the matching frontend only after backend smoke tests pass. Test onboarding and two-account flows on real browsers/devices.
 8. Verify notification delivery and suppression for active, ended, blocked, muted, read, and stale queued events. Confirm webhook/scheduler targets use this staging ref.
 9. Reopen swipe traffic only after acceptance checks pass and monitoring is available.
+
+## Notification dispatcher status
+
+The authorized test project was inspected read-only. `pg_cron` and `pg_net` are not installed, `vault.secrets` returned no rows, and no database trigger matching push/webhook names was found. The deployed function listing showed `pacemate` version 18 and no separate `send-push` function. The project does have VAPID secret names configured. These facts do not establish whether an external scheduler already exists.
+
+The local code has a protected `POST /api/tasks/dispatch` endpoint. The repository's GitHub Actions workflow is scheduled every five minutes and can also be run manually. Scheduled runs remain disabled unless the GitHub Actions repository variable `PACEMATE_NOTIFICATION_DISPATCH_ENABLED` is set to `true`. Manual runs require the same strong `PACEMATE_TASK_SECRET` to be configured as a Supabase Edge Function secret and a GitHub Actions repository secret. Configure the secrets only after the backend deployment is approved. Test a manual run first; enable the repository variable only after it succeeds. Do not put secret values in files, SQL, workflow logs, or chat.
+
+The dispatcher also sends email only when `RESEND_API_KEY` and `PACEMATE_EMAIL_FROM` are configured. Push delivery requires VAPID keys and user subscriptions/preferences. Missing email credentials do not disable in-app notifications or push.
+
+The workflow uses a five-minute cadence. GitHub scheduled runs can be delayed, so it is not a hard real-time guarantee. The app's direct social push path remains best-effort; the scheduled dispatcher retries queued notifications. Verify response status, delivery state, retry behavior, and reminder timing in staging before relying on it.
 
 ## Recovery and rollback
 

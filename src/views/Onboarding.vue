@@ -4,16 +4,18 @@ import {useRouter} from 'vue-router';
 import {api} from '../api.js';
 import {session,logout} from '../auth.js';
 import {GENDERS,GOALS,LEVELS,ROUTINES,SPORTS,CITIES} from '../options.js';
-import {ONBOARDING_STEPS,validateOnboardingStep,onboardingPayload,onboardingPreview} from '../onboarding.js';
+import {ONBOARDING_STEPS,CONNECTION_MODES,validateOnboardingStep,onboardingPayload,onboardingPreview} from '../onboarding.js';
+import {MODES} from '../foundation/compatibility.js';
 import PhotoManager from '../components/PhotoManager.vue';
 import ProfileCard from '../components/ProfileCard.vue';
 import {COUNTRIES,detectCountry} from '../money.js';
 import {requestLocation} from '../location.js';
 
 const router=useRouter(),owner=session.user?.id;
-const f=reactive({name:session.user?.name||'',birthdate:'',countryCode:detectCountry()||'NG',gender:'',interestedIn:[],ageMin:18,ageMax:45,goal:'',sports:[],level:'',routine:'',homeCity:'',currentCity:'',bio:'',photos:[]});
+const f=reactive({name:session.user?.name||'',birthdate:'',countryCode:detectCountry()||'NG',gender:'',connectionModes:[],interestedIn:[],ageMin:18,ageMax:45,goal:'',sports:[],level:'',routine:'',homeCity:'',currentCity:'',bio:'',photos:[]});
 const step=ref(0),err=ref(''),busy=ref(false),photoBusy=ref(false),title=ref(null);
 const cur=computed(()=>ONBOARDING_STEPS[step.value]);
+const goalChoices=computed(()=>f.connectionModes.includes('dating')?GOALS:GOALS.filter(goal=>!['A relationship','Something casual'].includes(goal)));
 const preview=computed(()=>onboardingPreview(f));
 const locationBusy=ref(false),locationNotice=ref('');
 const locked=computed(()=>busy.value||photoBusy.value||locationBusy.value);
@@ -23,15 +25,18 @@ let active=true;
 onBeforeUnmount(()=>active=false);
 watch(step,async()=>{await nextTick();title.value?.focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});});
 function toggle(values,value,max=99){if(locked.value)return;const index=values.indexOf(value);if(index>=0)values.splice(index,1);else if(values.length<max)values.push(value);}
-function back(){if(locked.value||step.value===0)return;err.value='';step.value--;}
+function skipped(key){return ['interestedIn','ages'].includes(key)&&!f.connectionModes.includes('dating');}
+function previousStep(index){let next=index-1;while(next>0&&skipped(ONBOARDING_STEPS[next].key))next--;return next;}
+function nextStep(index){let next=index+1;while(next<ONBOARDING_STEPS.length-1&&skipped(ONBOARDING_STEPS[next].key))next++;return next;}
+function back(){if(locked.value||step.value===0)return;err.value='';step.value=previousStep(step.value);}
 async function next(){
  if(locked.value)return;
  if(!active||session.user?.id!==owner){err.value='Your account changed. Refresh this page.';return;}
  err.value=validateOnboardingStep(cur.value.key,f);
  if(err.value)return;
- if(cur.value.key!=='review'){step.value++;return;}
+ if(cur.value.key!=='review'){step.value=nextStep(step.value);return;}
  // Recheck all fields before the only save, including values edited via Back.
- const invalid=ONBOARDING_STEPS.findIndex(item=>validateOnboardingStep(item.key,f));
+ const invalid=ONBOARDING_STEPS.findIndex(item=>!skipped(item.key)&&validateOnboardingStep(item.key,f));
  if(invalid>=0){step.value=invalid;err.value=validateOnboardingStep(ONBOARDING_STEPS[invalid].key,f);return;}
  busy.value=true;
  try{
@@ -70,7 +75,8 @@ async function signOut(){if(locked.value)return;try{await logout();await router.
      <input v-if="cur.key==='name'" v-model="f.name" type="text" maxlength="30" autocomplete="given-name" aria-label="Your name" placeholder="Your first name">
      <input v-else-if="cur.key==='birthdate'" v-model="f.birthdate" type="date" :max="maxBirthdate" autocomplete="bday" aria-label="Date of birth">
      <div v-else-if="cur.key==='gender'" class="options"><button v-for="gender in GENDERS" :key="gender" type="button" :aria-pressed="f.gender===gender" @click="f.gender=gender">{{ gender }}</button></div>
-     <div v-else-if="cur.key==='goal'" class="options"><button v-for="goal in GOALS" :key="goal" type="button" :aria-pressed="f.goal===goal" @click="f.goal=goal">{{ goal }}</button></div>
+     <div v-else-if="cur.key==='connectionModes'" class="options"><button v-for="(label,mode) in MODES" :key="mode" type="button" :aria-pressed="f.connectionModes.includes(mode)" @click="toggle(f.connectionModes,mode,3)">{{ label }}<span v-if="mode==='dating'"> · Find someone who shares your pace</span></button></div>
+     <div v-else-if="cur.key==='goal'" class="options"><button v-for="goal in goalChoices" :key="goal" type="button" :aria-pressed="f.goal===goal" @click="f.goal=goal">{{ goal }}</button></div>
      <div v-else-if="cur.key==='interestedIn'" class="options"><button v-for="gender in GENDERS" :key="gender" type="button" :aria-pressed="f.interestedIn.includes(gender)" @click="toggle(f.interestedIn,gender)">{{ gender }}</button></div>
      <div v-else-if="cur.key==='ages'" class="age-range"><label>From<input v-model.number="f.ageMin" type="number" min="18" max="99" inputmode="numeric"></label><span aria-hidden="true">to</span><label>To<input v-model.number="f.ageMax" type="number" min="18" max="99" inputmode="numeric"></label></div>
      <template v-else-if="cur.key==='sports'"><p class="selection-count" aria-live="polite">{{ f.sports.length }} of 8 selected</p><div class="sports" role="group" aria-label="Sports"><button v-for="sport in SPORTS" :key="sport" type="button" :aria-pressed="f.sports.includes(sport)" :disabled="f.sports.length>=8&&!f.sports.includes(sport)" @click="toggle(f.sports,sport,8)">{{ sport }}</button></div></template>

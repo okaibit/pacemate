@@ -12,7 +12,7 @@ function seo() {
     transformIndexHtml(html) {
       const json = JSON.stringify(structuredData()).replace(/</g, "\\u003c");
       const faq = FAQ.map((f) => `<h3>${esc(f.q)}</h3><p>${esc(f.a)}</p>`).join("");
-      const fallback = `<main class="prerender"><h1>Pacemate: find someone who shares your pace</h1><p>${esc(DEFAULT_DESCRIPTION)}</p>` +
+      const fallback = `<main class="prerender"><h1>Pacemate: sports dating, at your pace</h1><p>${esc(DEFAULT_DESCRIPTION)}</p>` +
         `<p><a href="/signup">Join free</a> · <a href="/login">Log in</a> · <a href="/safety">Safety</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>` +
         `<h2>Frequently asked questions</h2>${faq}</main>`;
       return html
