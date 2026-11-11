@@ -2,9 +2,11 @@
 
 # Activate the community features
 
+> **Staging hold:** This is a historical setup guide, not authorization to change the hosted project. The authorized ref `clwgczzpucjdguyfctcg` is the onboarding/test project. Its hosted schema and migration ledger must be reconciled first. Do not run the SQL below or deploy from this guide until the staging checklist and migration baseline are approved.
+
 The new code is built locally. Your hosted database and deployed function have not been changed automatically. Apply these steps in order; do not rerun the original database migration.
 
-## 1. Incremental migration
+## 1. Historical incremental migration (do not run until approved)
 
 In the existing project's SQL Editor, run the complete contents of:
 
@@ -35,7 +37,7 @@ If no rows appear, check the account's email, confirmation and completed profile
 ```sh
 npm ci
 npm run backend:build
-npx --yes supabase@2.39.2 functions deploy pacemate --project-ref hgnxappuulufvdymodad --use-api
+npx --yes supabase@2.39.2 functions deploy pacemate --project-ref clwgczzpucjdguyfctcg --use-api
 npm run dev
 ```
 
@@ -82,7 +84,7 @@ Store the private key only in Supabase secrets. Settings exposes only the public
 
 Enable Supabase's `pg_cron`, `pg_net` and Vault facilities in the dashboard. In Vault, create two secrets:
 
-- `pacemate_dispatch_url`: `https://hgnxappuulufvdymodad.supabase.co/functions/v1/pacemate/api/tasks/dispatch`
+- `pacemate_dispatch_url`: `https://clwgczzpucjdguyfctcg.supabase.co/functions/v1/pacemate/api/tasks/dispatch`
 - `pacemate_task_secret`: exactly the same value as the Edge Function's `PACEMATE_TASK_SECRET`.
 
 Then run `supabase/schedule-notifications.sql` in SQL Editor. It uses Vault references rather than putting credentials into the schedule. The dispatcher handles three notifications per run, leases work, retries temporary failures at most five times per channel, and expires delivery after 24 hours. Increase throughput only after checking provider limits and function runtime logs.
@@ -93,7 +95,7 @@ Without the schedule, the inbox still works, but email, push, timed reminders an
 
 Billing remains disabled and no prices are invented. Existing likes remain unlimited for free. The optional subscription unlocks the **Likes you** discovery filter and up to five additional travel plans.
 
-The global regional billing implementation supersedes the single `STRIPE_PRICE_ID` setup. Follow [GLOBAL_BILLING_SETUP.md](GLOBAL_BILLING_SETUP.md) before deploying the new backend. Apply its incremental migration, map approved regional prices to verified Stripe price IDs, reconcile existing subscribers and validate sandbox checkout/webhooks first. A redirect alone never grants Plus.
+Billing is not integrated. Checkout, portal, cancellation, payment synchronization, and webhook routes are disabled. The regional pricing and Stripe instructions are historical proposals only; do not apply their migrations or configure Stripe for the current staging release. See [GLOBAL_BILLING_REPORT.md](../GLOBAL_BILLING_REPORT.md).
 
 ## 7. City and distance discovery
 

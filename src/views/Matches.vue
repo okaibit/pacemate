@@ -6,8 +6,9 @@ import Avatar from "../components/Avatar.vue";
 import TripBadge from "../components/TripBadge.vue";
 
 const list = ref([]), loading = ref(true), err = ref("");
-const newMatches=computed(()=>list.value.filter(m=>!m.last));
-const conversations=computed(()=>list.value.filter(m=>m.last));
+const newMatches=computed(()=>list.value.filter(m=>!m.archived&&!m.last));
+const conversations=computed(()=>list.value.filter(m=>!m.archived&&m.last));
+const archived=computed(()=>list.value.filter(m=>m.archived));
 let timer,disposed=false;
 const refreshing=ref(false),viewer=session.user?.id;
 async function load() {
@@ -63,10 +64,10 @@ const when = (iso) => {
               <template v-else>New match · say hi and suggest a {{ m.other.sports[0]?.toLowerCase() || "session" }}</template>
             </div>
             <TripBadge :person="m.other" small style="margin-top:4px" />
-          </div>
+          </div><span v-if="m.archived" class="archive-label">Archived</span><span v-else-if="m.intention" class="intention-label">{{ m.intention }}</span>
         </RouterLink>
       </li>
-    </ul></template>
+    </ul><section v-if="archived.length" class="archive-section"><h2>Past connections</h2><ul class="list" aria-label="Archived conversations"><li v-for="m in archived" :key="m.id"><RouterLink :to="`/app/matches/${m.id}`" class="item"><Avatar :person="m.other" :size="64"/><div class="grow txt"><b>{{m.other.name}}</b><div class="mute small preview">{{m.last?.mine?'You: ':''}}{{m.last?.body||'Conversation history'}}</div></div><span class="archive-label">{{m.intention||'Legacy'}}</span></RouterLink></li></ul></section></template>
   </div>
 </template>
 <style scoped>
@@ -77,6 +78,8 @@ const when = (iso) => {
 .unread{display:inline-block;min-width:20px;padding:0 6px;border-radius:12px;background:var(--coral);color:#0F2A22;font-size:12px;text-align:center;margin-left:4px}
 .preview{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
+
+<style scoped>.archive-section{margin-top:34px}.archive-section h2{font:600 17px var(--display);margin-bottom:14px}.archive-label,.intention-label{color:var(--mute);font-size:11px;white-space:nowrap;text-transform:capitalize}.archive-label{border:1px solid var(--line);padding:5px 8px;border-radius:999px}</style>
 
 <style scoped>
 .matches-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:28px;padding:14px 0}.matches-heading .h{font-size:clamp(32px,4vw,46px);letter-spacing:-.045em;margin:0}.matches-heading h1 span{color:var(--coral)}

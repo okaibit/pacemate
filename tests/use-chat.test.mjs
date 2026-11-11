@@ -9,6 +9,7 @@ const output=await compiled.generate({format:'esm'});await compiled.close();cons
 let originalFetch;
 const waitFor=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(resolve=>setTimeout(resolve,5));}assert.fail('Chat operation did not settle');};
 test.beforeEach(()=>{requests=[];records=[];stopHandler=null;failAfterInsert=false;globalThis.__chatFixture.user={id:'me'};globalThis.__chatFixture.disposed=false;globalThis.__chatFixture.api=async(path,options)=>{
+ if(path.endsWith('/messages')&&options?.method==='PUT'){requests.push({api:true,path,method:'PUT',body:options.body});for(const row of records)if(row.sender_id!=='me'&&row.id<=options.body.lastReadId)row.read_at=new Date().toISOString();return {ok:true};}
  if(path.endsWith('/messages')&&options?.method==='POST'){
   const {body,clientId,replyToId}=options.body;const row={id:100,sender_id:'me',body,client_id:clientId,reply_to_id:replyToId,created_at:new Date().toISOString(),status:'sent'};records.push(row);
   requests.push({api:true,path,method:'POST',body:options.body});if(failAfterInsert){failAfterInsert=false;throw Error('Response lost');}
@@ -39,11 +40,11 @@ test('send renders before network completion and reconciles a lost insert respon
  assert.equal(chat.send('Hello there'),true);assert.equal(chat.messages.value.length,1);assert.equal(chat.messages.value[0].status,'sending');
  await waitFor(()=>chat.messages.value[0]?.status==='sent');assert.equal(chat.messages.value.length,1);assert.equal(records.length,1);assert.ok(requests.some(r=>r.api&&r.path==='/api/matches/12/messages'));assert.ok(!requests.some(r=>!r.api&&r.method==='POST'));
 });
-test('hidden chats do not send read acknowledgements; visible receipt updates only incoming IDs',async()=>{
+test('hidden chats do not send read acknowledgements; visible receipt updates only incoming IDs through the authenticated API',async()=>{
  records=[{id:1,sender_id:'other',body:'hello',created_at:new Date().toISOString()},{id:2,sender_id:'me',body:'hi',created_at:new Date().toISOString()}];
  const chat=useChat(12);await waitFor(()=>chat.messages.value.length===2&&!chat.loading.value);
  document.visibilityState='hidden';await chat.markRead([1,2]);assert.ok(!requests.some(r=>r.method==='PATCH'));
- document.visibilityState='visible';await chat.markRead([1,2]);const patch=requests.find(r=>r.method==='PATCH');assert.equal(patch.url.searchParams.get('id'),'in.(1)');assert.ok(chat.messages.value[0].read_at);assert.ok(!chat.messages.value[1].read_at);
+ document.visibilityState='visible';await chat.markRead([1,2]);const patch=requests.find(r=>r.api&&r.method==='PUT');assert.equal(patch.path,'/api/matches/12/messages');assert.equal(patch.body.lastReadId,1);assert.ok(chat.messages.value[0].read_at);assert.ok(!chat.messages.value[1].read_at);
 });
 test('unmount removes subscriptions and prevents subsequent writes',async()=>{
  const chat=useChat(12);await waitFor(()=>chat.ready.value&&!chat.loading.value);stopHandler();assert.equal(globalThis.__chatFixture.disposed,true);const previous=requests.length;

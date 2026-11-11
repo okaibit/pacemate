@@ -11,7 +11,7 @@ In the intended Supabase project, open Authentication's provider settings and en
 For the existing project currently configured in this workspace, that callback is:
 
 ```text
-https://hgnxappuulufvdymodad.supabase.co/auth/v1/callback
+https://clwgczzpucjdguyfctcg.supabase.co/auth/v1/callback
 ```
 
 For a separate test project, copy that test project's callback instead. Configure the Google consent screen and, if its audience is restricted to test users, include the accounts used to test signup. Keep the Google client secret in Supabase provider settings, never in `VITE_*` variables or source control.

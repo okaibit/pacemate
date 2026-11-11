@@ -1,6 +1,8 @@
 # Community features
 
-For the incremental feature release, follow [COMMUNITY_SETUP.md](COMMUNITY_SETUP.md). Apply its new migration before deploying the updated API.
+> **Staging safety:** The only approved project in these instructions is the onboarding/test project `clwgczzpucjdguyfctcg`. It is not confirmed production. The hosted migration ledger is empty while the database already contains application objects. Do not run historical migrations, `db push`, migration repair, or deployment commands until the baseline, recovery, and staging checklist have been approved.
+
+For staging preparation, use [STAGING_DEPLOYMENT_CHECKLIST.md](STAGING_DEPLOYMENT_CHECKLIST.md). Other setup files contain historical SQL and deployment examples; they are not evidence that those changes are installed.
 
 # Supabase setup
 
@@ -19,11 +21,13 @@ Only `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and the optional `VIT
 
 ## 2. Database
 
-In project `hgnxappuulufvdymodad`, open **SQL Editor** and execute the entire file:
+`20261107000000_pacemate.sql` is a historical bootstrap for a new, empty database. **Do not run it against the authorized staging project.** Its database is already populated and its empty migration ledger must be reconciled through the separately reviewed baseline process. Use [STAGING_DEPLOYMENT_CHECKLIST.md](STAGING_DEPLOYMENT_CHECKLIST.md) before any hosted change.
+
+For a genuinely new, empty project only, the original bootstrap file is:
 
 `supabase/migrations/20261107000000_pacemate.sql`
 
-Run this once on an empty app database. It creates tables, worldwide weekly events, RLS, Auth deletion triggers, and the `photos` bucket in a transaction. It does not import existing Netlify users, passwords, photos, or application data. The `profiles` table uses Supabase Auth IDs; old Identity accounts are not automatically transferable.
+It creates tables, seed events, RLS, Auth deletion triggers, and the `photos` bucket in a transaction. It does not import existing Netlify users, passwords, photos, or application data. The `profiles` table uses Supabase Auth IDs; old Identity accounts are not automatically transferable.
 
 All app tables deny direct reads/writes by `anon` and `authenticated`. The Edge Function validates users and enforces ownership before using a server-only database connection. There are intentionally no browser-facing policies exposing private profiles or wellness records. Do not disable RLS to resolve client errors.
 
@@ -46,7 +50,7 @@ From the project directory:
 ```sh
 npm run backend:build
 npx --yes supabase@2.39.2 login
-npx --yes supabase@2.39.2 functions deploy pacemate --project-ref hgnxappuulufvdymodad --use-api
+npx --yes supabase@2.39.2 functions deploy pacemate --project-ref clwgczzpucjdguyfctcg --use-api
 ```
 
 The function deploys the generated `_bundle/index.js`, which tree-shakes Drizzle locally to reduce runtime module initialization. Re-run `npm run backend:build` after changing backend source and before redeploying. Version 2.39.2 is used here because the current CLI binary does not run on this project owner's macOS Big Sur machine.
@@ -55,7 +59,7 @@ The checked-in function configuration disables the gateway's blanket JWT check s
 
 The frontend defaults to:
 
-`https://hgnxappuulufvdymodad.supabase.co/functions/v1/pacemate/api/...`
+`https://clwgczzpucjdguyfctcg.supabase.co/functions/v1/pacemate/api/...`
 
 ## 5. Auth settings
 

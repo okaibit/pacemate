@@ -1,71 +1,216 @@
-import {handle,json,body,str,HttpError,publicProfile} from '../server/http.ts';
-import {rows,transaction,requireMatch,rateLimit,camel} from '../server/feature-db.ts';
-import {queueSocialPush} from '../server/push-delivery.ts';
-import {repliesEnabled,replyQuotes} from '../server/chat-replies.ts';
-import {signedPhoto} from '../server/supabase.ts';
+import {
+  body,
+  handle,
+  HttpError,
+  json,
+  publicProfile,
+  str,
+} from "../server/http.ts";
+import {
+  camel,
+  lockActiveMatch,
+  rateLimit,
+  requireMatch,
+  rows,
+  transaction,
+} from "../server/feature-db.ts";
+import { queueSocialPush } from "../server/push-delivery.ts";
+import { repliesEnabled, replyQuotes } from "../server/chat-replies.ts";
+import { signedPhoto } from "../server/supabase.ts";
 
-export default handle(async(req,ctx)=>{
-  const id=Number(ctx.params.id),{user,match}=await requireMatch(req,id);
-  if(req.method==='GET'){
-    const params=new URL(req.url).searchParams;
-    const after=Math.max(0,Number(params.get('after'))||0);
-    const list=await rows(`SELECT m.*,a.object_key FROM public.messages m LEFT JOIN public.chat_attachments a ON a.id=m.attachment_id
-      WHERE m.match_id=$1 AND m.id>$2 ORDER BY m.id LIMIT 51`,[id,after]);
-    const hasMore=list.length>50;list.splice(50);
-    const [read]=await rows('SELECT last_read_id FROM public.match_reads WHERE match_id=$1 AND user_id=$2',[id,match.other_id]);
+export default handle(async (req, ctx) => {
+  const id = Number(ctx.params.id),
+    { user, match } = await requireMatch(req, id);
+  if (req.method === "GET") {
+    const params = new URL(req.url).searchParams;
+    const after = Math.max(0, Number(params.get("after")) || 0);
+    const list = await rows(
+      `SELECT m.*,a.object_key FROM public.messages m LEFT JOIN public.chat_attachments a ON a.id=m.attachment_id
+      WHERE m.match_id=$1 AND m.id>$2 ORDER BY m.id LIMIT 51`,
+      [id, after],
+    );
+    const hasMore = list.length > 50;
+    list.splice(50);
+    const [read] = await rows(
+      "SELECT last_read_id FROM public.match_reads WHERE match_id=$1 AND user_id=$2",
+      [id, match.other_id],
+    );
     let other;
-    if(!after){const [p]=await rows('SELECT * FROM public.profiles WHERE id=$1',[match.other_id]);other=publicProfile(camel(p));}
-    const messages=[];
-    for(let start=0;start<list.length;start+=5)messages.push(...await Promise.all(list.slice(start,start+5).map(async m=>({id:m.id,body:m.body,mine:m.sender_id===user.id,createdAt:m.created_at,imageUrl:m.object_key?await signedPhoto('chat',m.object_key):null}))));
-    return json({other,messages,hasMore,cursor:list.at(-1)?.id||after,otherReadId:read?.last_read_id||0});
+    if (!after) {
+      const [p] = await rows("SELECT * FROM public.profiles WHERE id=$1", [
+        match.other_id,
+      ]);
+      other = publicProfile(camel(p));
+    }
+    const messages = [];
+    for (let start = 0; start < list.length; start += 5) {
+      messages.push(
+        ...await Promise.all(
+          list.slice(start, start + 5).map(async (m) => ({
+            id: m.id,
+            body: m.body,
+            mine: m.sender_id === user.id,
+            createdAt: m.created_at,
+            imageUrl: m.object_key
+              ? await signedPhoto("chat", m.object_key)
+              : null,
+          })),
+        ),
+      );
+    }
+    return json({
+      other,
+      messages,
+      hasMore,
+      cursor: list.at(-1)?.id || after,
+      otherReadId: read?.last_read_id || 0,
+    });
   }
-  if(req.method==='PUT'){
-    const b=await body(req),requested=Number(b.lastReadId);
-    if(!Number.isSafeInteger(requested)||requested<0)throw new HttpError(422,'Invalid read position.');
-    // Do not let a caller acknowledge messages outside the selected match.
-    const [last]=await rows('SELECT coalesce(max(id),0)::int AS id FROM public.messages WHERE match_id=$1 AND id<=$2',[id,requested]);
-    await rows(`INSERT INTO public.match_reads(match_id,user_id,last_read_id) VALUES($1,$2,$3)
-      ON CONFLICT(match_id,user_id) DO UPDATE SET last_read_id=greatest(match_reads.last_read_id,EXCLUDED.last_read_id)`,[id,user.id,last.id]);
-    await rows('UPDATE public.messages SET read_at=now() WHERE match_id=$1 AND sender_id<>$2 AND id<=$3 AND read_at IS NULL',[id,user.id,last.id]);
-    return json({ok:true});
+  if (req.method === "PUT") {
+    if (match.ended_at) {
+      throw new HttpError(409, "Archived conversations are read-only.");
+    }
+    const b = await body(req), requested = Number(b.lastReadId);
+    if (!Number.isSafeInteger(requested) || requested < 0) {
+      throw new HttpError(422, "Invalid read position.");
+    }
+    // Serialize receipt writes against unmatch and block transitions, then
+    // repeat the authorization check while holding the pair lock.
+    await transaction(async (tx) => {
+      await lockActiveMatch(tx, match, id, user.id);
+      const [last] = await tx.unsafe(
+        "SELECT coalesce(max(id),0)::int AS id FROM public.messages WHERE match_id=$1 AND id<=$2",
+        [id, requested],
+      );
+      await tx.unsafe(
+        `INSERT INTO public.match_reads(match_id,user_id,last_read_id) VALUES($1,$2,$3)
+        ON CONFLICT(match_id,user_id) DO UPDATE SET last_read_id=greatest(match_reads.last_read_id,EXCLUDED.last_read_id)`,
+        [id, user.id, last.id],
+      );
+      await tx.unsafe(
+        "UPDATE public.messages SET read_at=now() WHERE match_id=$1 AND sender_id<>$2 AND id<=$3 AND read_at IS NULL",
+        [id, user.id, last.id],
+      );
+    });
+    return json({ ok: true });
   }
-  if(req.method==='POST'){
-    await rateLimit(user.id,'message',30);
-    const b=await body(req),text=str(b.body,2000,'Message'),attachmentId=b.attachmentId||null;
-    const clientId=b.clientId||null,replyToId=b.replyToId??null;
-    if(replyToId!==null&&(!Number.isSafeInteger(replyToId)||replyToId<1))throw new HttpError(422,'Choose a saved message to reply to.');
-    if(replyToId!==null&&!await repliesEnabled())throw new HttpError(409,'Replies are not available yet. Send a new message instead.');
-    const candidate=text.match(/https?:\/\/[^\s<>]+/i)?.[0]?.replace(/[.,!?)]+$/,'');
-    let linkUrl=null;try{const link=new URL(candidate);if(['http:','https:'].includes(link.protocol)&&!link.username&&!link.password)linkUrl=link.href;}catch{}
-    const type=attachmentId?'image':linkUrl?'link':'text';
-    if(clientId&&(typeof clientId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId)))throw new HttpError(422,'Invalid message identity.');
-    if(!text&&!attachmentId)throw new HttpError(422,'Write a message or choose a photo.');
-    const [message]=await transaction(async tx=>{
-      // Serialize against blocking/unmatching for this pair.
-      const [a,c]=[match.user_a,match.user_b].sort();
-      await tx.unsafe('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[a+':'+c]);
-      const active=await tx.unsafe(`SELECT 1 FROM public.matches m WHERE m.id=$1 AND NOT EXISTS(SELECT 1 FROM public.blocks b WHERE(b.blocker_id=m.user_a AND b.blocked_id=m.user_b)OR(b.blocker_id=m.user_b AND b.blocked_id=m.user_a))`,[id]);
-      if(!active.length)throw new HttpError(404,'This match is no longer available.');
-      if(clientId){
-        const existing=await tx.unsafe('SELECT * FROM public.messages WHERE sender_id=$1 AND client_id=$2',[user.id,clientId]);
-        if(existing.length){if(existing[0].match_id!==id)throw new HttpError(422,'Message identity belongs to another conversation.');return existing;}
+  if (req.method === "POST") {
+    await rateLimit(user.id, "message", 30);
+    const b = await body(req),
+      text = str(b.body, 2000, "Message"),
+      attachmentId = b.attachmentId || null;
+    const clientId = b.clientId || null, replyToId = b.replyToId ?? null;
+    if (
+      replyToId !== null && (!Number.isSafeInteger(replyToId) || replyToId < 1)
+    ) throw new HttpError(422, "Choose a saved message to reply to.");
+    if (replyToId !== null && !await repliesEnabled()) {
+      throw new HttpError(
+        409,
+        "Replies are not available yet. Send a new message instead.",
+      );
+    }
+    const candidate = text.match(/https?:\/\/[^\s<>]+/i)?.[0]?.replace(
+      /[.,!?)]+$/,
+      "",
+    );
+    let linkUrl = null;
+    try {
+      const link = new URL(candidate);
+      if (
+        ["http:", "https:"].includes(link.protocol) && !link.username &&
+        !link.password
+      ) linkUrl = link.href;
+    } catch {}
+    const type = attachmentId ? "image" : linkUrl ? "link" : "text";
+    if (
+      clientId &&
+      (typeof clientId !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          clientId,
+        ))
+    ) throw new HttpError(422, "Invalid message identity.");
+    if (!text && !attachmentId) {
+      throw new HttpError(422, "Write a message or choose a photo.");
+    }
+    const [message] = await transaction(async (tx) => {
+      await lockActiveMatch(tx, match, id, user.id);
+      if (clientId) {
+        const existing = await tx.unsafe(
+          "SELECT * FROM public.messages WHERE sender_id=$1 AND client_id=$2",
+          [user.id, clientId],
+        );
+        if (existing.length) {
+          if (existing[0].match_id !== id) {
+            throw new HttpError(
+              422,
+              "Message identity belongs to another conversation.",
+            );
+          }
+          return existing;
+        }
       }
-      if(replyToId!==null){const original=await tx.unsafe('SELECT id FROM public.messages WHERE id=$1 AND match_id=$2',[replyToId,id]);if(!original.length)throw new HttpError(422,'This message is no longer available to reply to.');}
-      if(attachmentId){
-        const attachment=await tx.unsafe(`SELECT 1 FROM public.chat_attachments a WHERE a.id=$1 AND a.user_id=$2 AND a.match_id=$3 AND NOT EXISTS(SELECT 1 FROM public.messages WHERE attachment_id=a.id)`,[attachmentId,user.id,id]);
-        if(!attachment.length)throw new HttpError(422,'This photo is not available. Upload it again.');
+      if (replyToId !== null) {
+        const original = await tx.unsafe(
+          "SELECT id FROM public.messages WHERE id=$1 AND match_id=$2",
+          [replyToId, id],
+        );
+        if (!original.length) {
+          throw new HttpError(
+            422,
+            "This message is no longer available to reply to.",
+          );
+        }
       }
-      const inserted=await (clientId
-        ?tx.unsafe('INSERT INTO public.messages(match_id,sender_id,body,attachment_id,client_id,type,link_url) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',[id,user.id,text,attachmentId,clientId,type,linkUrl])
-        :tx.unsafe('INSERT INTO public.messages(match_id,sender_id,body,attachment_id,type,link_url) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[id,user.id,text,attachmentId,type,linkUrl]));
-      if(replyToId!==null)await tx.unsafe('UPDATE public.messages SET reply_to_id=$2 WHERE id=$1',[inserted[0].id,replyToId]);
+      if (attachmentId) {
+        const attachment = await tx.unsafe(
+          `SELECT 1 FROM public.chat_attachments a WHERE a.id=$1 AND a.user_id=$2 AND a.match_id=$3 AND NOT EXISTS(SELECT 1 FROM public.messages WHERE attachment_id=a.id)`,
+          [attachmentId, user.id, id],
+        );
+        if (!attachment.length) {
+          throw new HttpError(
+            422,
+            "This photo is not available. Upload it again.",
+          );
+        }
+      }
+      const inserted = await (clientId
+        ? tx.unsafe(
+          "INSERT INTO public.messages(match_id,sender_id,body,attachment_id,client_id,type,link_url) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *",
+          [id, user.id, text, attachmentId, clientId, type, linkUrl],
+        )
+        : tx.unsafe(
+          "INSERT INTO public.messages(match_id,sender_id,body,attachment_id,type,link_url) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",
+          [id, user.id, text, attachmentId, type, linkUrl],
+        ));
+      if (replyToId !== null) {
+        await tx.unsafe(
+          "UPDATE public.messages SET reply_to_id=$2 WHERE id=$1",
+          [inserted[0].id, replyToId],
+        );
+      }
       return inserted;
     });
     queueSocialPush(`message:${message.id}`);
-    let imageUrl=null;
-    if(message.attachment_id){const [a]=await rows('SELECT object_key FROM public.chat_attachments WHERE id=$1',[message.attachment_id]);if(a)imageUrl=await signedPhoto('chat',a.object_key);}
-    const quotes=await replyQuotes(id,[message.id]);
-    return json({message:{id:message.id,body:message.body,mine:true,createdAt:message.created_at,imageUrl,reply_to_id:quotes[message.id]?.id||null,reply:quotes[message.id]||null}},201);
+    let imageUrl = null;
+    if (message.attachment_id) {
+      const [a] = await rows(
+        "SELECT object_key FROM public.chat_attachments WHERE id=$1",
+        [message.attachment_id],
+      );
+      if (a) imageUrl = await signedPhoto("chat", a.object_key);
+    }
+    const quotes = await replyQuotes(id, [message.id]);
+    return json({
+      message: {
+        id: message.id,
+        body: message.body,
+        mine: true,
+        createdAt: message.created_at,
+        imageUrl,
+        reply_to_id: quotes[message.id]?.id || null,
+        reply: quotes[message.id] || null,
+      },
+    }, 201);
   }
-  throw new HttpError(405,'Method not allowed');
+  throw new HttpError(405, "Method not allowed");
 });

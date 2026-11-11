@@ -1,5 +1,7 @@
 # Direct chat: review and activation
 
+> **Staging hold:** The SQL and deployment steps below are historical proposals. Do not execute or deploy them against `clwgczzpucjdguyfctcg` until the hosted schema baseline, backup/restore rehearsal, and staging checklist are approved.
+
 The new screen replaces `/app/matches/:id` and follows the existing authentication and router guards. All frontend chat data access lives in `src/composables/useChat.js`, using the project's existing Supabase Auth REST client and authenticated Edge API. No dependencies were added. Calling and audio recording are not implemented; those icons are disabled and labelled accessibly. Camera/photo attachments and emoji selection work.
 
 ## 1. Static UI
@@ -47,7 +49,7 @@ After approving and manually running the SQL:
 
 ```sh
 npm run backend:build
-npx --yes supabase@2.39.2 functions deploy pacemate --project-ref hgnxappuulufvdymodad --use-api
+npx --yes supabase@2.39.2 functions deploy pacemate --project-ref clwgczzpucjdguyfctcg --use-api
 ```
 
 Refresh Vite. Health should return `version: "chat-5"`. Existing private Realtime policies for `match:<id>` remain in use. The migration adds `public.messages` to `supabase_realtime` publication. WebSocket joins subscribe to INSERT and UPDATE Postgres Changes with `conversation_id=eq.<id>`. PostgreSQL SELECT RLS authorizes message delivery; filters alone are not authorization. The subscription leaves on unmount. A 15-second refresh recovers missed events and reaction changes.

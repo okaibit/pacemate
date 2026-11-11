@@ -1,6 +1,8 @@
 > Current status: Stripe has been disconnected. The provider setup below is historical. Use [test membership setup](TEST_PLUS_SETUP.md) to test Free and Plus without payments. No real checkout is available.
 
-# Global billing deployment checklist
+> **Correction:** Billing is not integrated. The checklist below is historical proposal material and must not be followed for the current staging release. Checkout, portal, cancellation, synchronization, and webhook routes are disabled. See [GLOBAL_BILLING_REPORT.md](../GLOBAL_BILLING_REPORT.md).
+
+# Historical global billing proposal (not integrated)
 
 **Pricing update:** The user subsequently approved weekly/monthly/annual v2 prices. The earlier launch amounts below are historical. Follow [PLUS_PRICING_V2.md](PLUS_PRICING_V2.md) and the incremental v2 migration for new sales; preserve existing contracts.
 

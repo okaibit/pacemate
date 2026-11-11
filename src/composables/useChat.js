@@ -8,7 +8,7 @@ import {firstLink,mergeMessages} from './chat-model.js';
 
 export function useChat(conversationId,{mock=false}={}){
  const me=session.user?.id,other=ref(null),messages=ref([]),unread=ref(0),error=ref(''),loading=ref(false),hasOlder=ref(false),ready=ref(false);
- const canReply=ref(mock),muted=ref(false);let stopPresence;
+ const canReply=ref(mock),muted=ref(false),archived=ref(false),intention=ref(null),legacy=ref(false);let stopPresence;
  let stopped=false,stop,timer,refreshing=false,refreshAgain=false,reading=false;
  const matchId=Number(conversationId);
  async function rest(path,{method='GET',body,prefer='return=representation',headers={}}={}){
@@ -46,7 +46,7 @@ export function useChat(conversationId,{mock=false}={}){
   if(mock){other.value={name:'Alex',photos:[]};messages.value=[{id:1,sender_id:'demo-other',body:'Hey! Ready for our next run? 🏃',created_at:new Date(Date.now()-180000).toISOString(),status:'sent',reactions:[{user_id:me,emoji:'👍'}]},{id:2,sender_id:me,body:'Absolutely! Same place tomorrow?',created_at:new Date(Date.now()-120000).toISOString(),read_at:new Date().toISOString(),status:'read'},{id:3,sender_id:'demo-other',type:'link',body:'A little inspiration for the route',link_url:'https://www.youtube.com/watch?v=example',link_meta:{title:'A new route. A fresh start.',image:new URL('/images/event.jpg',window.location.origin).href,logo:new URL('/app-icon.svg',window.location.origin).href,video:true,duration:'4:32'},created_at:new Date().toISOString(),status:'sent'}];return;}
   loading.value=true;
   try{
-   const info=await api(`/api/matches/${matchId}/chat`,{expectedUserId:me});other.value=info.other;canReply.value=info.repliesEnabled===true;
+   const info=await api(`/api/matches/${matchId}/chat`,{expectedUserId:me});other.value=info.other;canReply.value=info.repliesEnabled===true;archived.value=info.archived===true;intention.value=info.intention??null;legacy.value=info.legacy===true;
    const membership=await rest(`conversations?select=id&id=eq.${matchId}`);if(!membership.data.length)throw new Error('This match is no longer available.');
    stopPresence=subscribe(`push:${me}`,()=>{},()=>{},undefined,{key:crypto.randomUUID(),state:()=>({conversation_id:matchId,visible:document.visibilityState==='visible'})});
    pushRest(`conversation_members?select=muted_until&conversation_id=eq.${matchId}&user_id=eq.${me}`).then(rows=>{muted.value=!!rows[0]?.muted_until&&Date.parse(rows[0].muted_until)>Date.now();}).catch(()=>{});
@@ -69,17 +69,17 @@ export function useChat(conversationId,{mock=false}={}){
    put([saved]);enrich(saved);
   }catch(e){if(!stopped){put([{...optimistic,status:'failed',file}]);error.value=e.message;}}
  }
- function send(body,file,reply=null){body=body.trim();if(stopped||(!body&&!file)||(!ready.value&&!mock))return false;if(reply&&(!canReply.value||!Number.isSafeInteger(reply.id)))return false;
+ function send(body,file,reply=null){body=body.trim();if(stopped||archived.value||(!body&&!file)||(!ready.value&&!mock))return false;if(reply&&(!canReply.value||!Number.isSafeInteger(reply.id)))return false;
   const client_id=crypto.randomUUID(),message={id:`local:${client_id}`,client_id,sender_id:me,body,reply_to_id:reply?.id||null,reply:reply?{id:reply.id,sender_id:reply.sender_id,body:reply.body?.slice(0,240)||'',type:reply.type}:null,type:file?'image':'text',link_url:file?null:firstLink(body),created_at:new Date().toISOString(),status:'sending',imageUrl:file?URL.createObjectURL(file):null};
   put([message]);if(message.imageUrl)objectUrls.push(message.imageUrl);if(mock){setTimeout(()=>put([{...message,id:Date.now(),status:'sent'}]),400);}else deliver(message,file);return true;
  }
  const objectUrls=[];
- async function markRead(ids){if(reading||mock||stopped||document.visibilityState!=='visible')return;const selected=messages.value.filter(m=>ids.includes(m.id)&&m.sender_id!==me&&!m.read_at&&Number.isSafeInteger(m.id));if(!selected.length)return;reading=true;try{const {data}=await rest(`messages?conversation_id=eq.${matchId}&sender_id=neq.${me}&read_at=is.null&id=in.(${selected.map(m=>m.id).slice(0,100).join(',')})`,{method:'PATCH',body:{read_at:new Date().toISOString()}});putRows(data);await api('/api/notifications',{method:'PUT',body:{matchId},expectedUserId:me});await countUnread();}catch(e){if(!stopped)error.value=e.message;}finally{reading=false;}}
- async function react(message){if(!Number.isSafeInteger(message.id))return;try{if(mock){put([{...message,reactions:message.reactions?.length?[]:[{user_id:me,emoji:'👍'}]}]);return;}const mine=message.reactions?.some(r=>r.user_id===me);await rest(mine?`message_reactions?message_id=eq.${message.id}&user_id=eq.${me}`:'message_reactions',{method:mine?'DELETE':'POST',body:mine?undefined:{message_id:message.id,user_id:me,emoji:'👍'}});await reactions();}catch(e){if(!stopped)error.value=e.message;}}
- async function toggleMute(){try{const body={muted_until:muted.value?null:'9999-12-31T00:00:00Z'};const path=`conversation_members?conversation_id=eq.${matchId}&user_id=eq.${me}`;const rows=await pushRest(path,{method:'PATCH',body});if(!rows.length)await pushRest('conversation_members',{method:'POST',body:{conversation_id:matchId,user_id:me,...body}});muted.value=!muted.value;}catch(e){error.value=e.message;}}
+ async function markRead(ids){if(reading||mock||archived.value||stopped||document.visibilityState!=='visible')return;const selected=messages.value.filter(m=>ids.includes(m.id)&&m.sender_id!==me&&!m.read_at&&Number.isSafeInteger(m.id));if(!selected.length)return;reading=true;try{const lastReadId=Math.max(...selected.map(m=>m.id));await api(`/api/matches/${matchId}/messages`,{method:'PUT',body:{lastReadId},expectedUserId:me});await api('/api/notifications',{method:'PUT',body:{matchId},expectedUserId:me});await refresh();await countUnread();}catch(e){if(!stopped)error.value=e.message;}finally{reading=false;}}
+ async function react(message){if(!Number.isSafeInteger(message.id)||archived.value)return;try{if(mock){put([{...message,reactions:message.reactions?.length?[]:[{user_id:me,emoji:'👍'}]}]);return;}await api(`/api/matches/${matchId}/chat`,{method:'POST',body:{action:'reaction',messageId:message.id,emoji:'👍'},expectedUserId:me});await reactions();}catch(e){if(!stopped)error.value=e.message;}}
+ async function toggleMute(){if(archived.value)return;try{const result=await api(`/api/matches/${matchId}/chat`,{method:'POST',body:{action:'mute',muted:!muted.value},expectedUserId:me});muted.value=result.muted;}catch(e){error.value=e.message;}}
  async function unmatch(){await api(`/api/matches/${matchId}`,{method:'DELETE',expectedUserId:me});}
  function retry(message){put([{...message,status:'sending'}]);deliver(message,message.file);}
  onBeforeUnmount(()=>{stopped=true;stop?.();stopPresence?.();clearInterval(timer);document.removeEventListener('visibilitychange',refresh);objectUrls.forEach(url=>URL.revokeObjectURL(url));});
  start();
- return {canReply,muted,toggleMute,me,other,messages,unread,error,loading,hasOlder,ready,older,send,markRead,react,retry,unmatch};
+ return {canReply,muted,archived,intention,legacy,toggleMute,me,other,messages,unread,error,loading,hasOlder,ready,older,send,markRead,react,retry,unmatch};
 }

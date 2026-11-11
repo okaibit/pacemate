@@ -20,7 +20,7 @@ const compiled=await rolldown({input:'supabase/functions/pacemate/index.ts',plug
     if(id==='web-push')return '\0community-push';
   },
   load(id){
-    if(id==='\0community-db')return `export const withDatabaseDeadline=fn=>fn(globalThis.__communityClient);export const db={select(){return {from(){return {where:async()=>globalThis.__communityProfile()?[globalThis.__communityProfile()]:[]}}}}};export async function checkDatabase(){return {status:'ok'}};`;
+    if(id==='\0community-db')return `export const withDatabaseDeadline=fn=>fn(globalThis.__communityClient);export const db={select(){return {from(){return {where:async()=>globalThis.__communityProfile()?[globalThis.__communityProfile()]:[]}}}},transaction:fn=>fn({execute:q=>globalThis.__communityExecute(q),insert:table=>globalThis.__communityInsert(table)}),insert:table=>globalThis.__communityInsert(table)};export async function checkDatabase(){return {status:'ok'}};`;
     if(id==='\0community-push')return `export default {setVapidDetails(){},sendNotification(){throw new Error('Push must not be sent by a regression test')}}`;
   },
 }]});
@@ -66,7 +66,7 @@ test('a member cannot reuse another member’s attachment',async()=>{
   assert.equal(response.status,422);assert.ok(!calls.some(call=>call.sql.startsWith('INSERT INTO public.messages')));
 });
 test('read receipts clamp acknowledgements to messages in that match',async()=>{
-  sqlHandler=async sql=>sql.includes('SELECT m.*,CASE')?[{id:22,user_a:member.id,user_b:'b',other_id:'b'}]:sql.includes('max(id)')?[{id:18}]:[];
+ sqlHandler=async sql=>sql.includes('SELECT m.*,CASE')?[{id:22,user_a:member.id,user_b:'b',other_id:'b'}]:sql.includes('SELECT 1 FROM public.matches m')?[{}]:sql.includes('max(id)')?[{id:18}]:[];
   const response=await request('/api/matches/22/messages','PUT',{lastReadId:9999});assert.equal(response.status,200);
   const write=calls.find(call=>call.sql.includes('INSERT INTO public.match_reads'));assert.deepEqual(write.params,[22,member.id,18]);
 });
@@ -195,7 +195,7 @@ test('matches surfaces a wrapped database disconnect as a retryable failure with
 test('matches decodes raw profile arrays while preserving match identifiers',async()=>{
  sqlHandler=async sql=>sql.includes('FROM public.matches m JOIN public.profiles')?[{...member,sports:'{Running,Football}',photos:'{member-a/main.jpg}',match_id:22,matched_at:'2026-11-07T12:00:00Z',last:null,unread:0}]:[];
  const response=await request('/api/matches');const data=await response.json();
- assert.equal(response.status,200);assert.equal(data.matches[0].id,22);assert.deepEqual(data.matches[0].other.sports,['Running','Football']);assert.deepEqual(data.matches[0].other.photos,['member-a/main.jpg']);
+ assert.equal(response.status,200);assert.equal(data.matches[0].id,22);assert.equal(data.matches[0].intention,null);assert.equal(data.matches[0].legacy,true);assert.equal(data.matches[0].archived,false);assert.deepEqual(data.matches[0].other.sports,['Running','Football']);assert.deepEqual(data.matches[0].other.photos,['member-a/main.jpg']);
 });
 
 const foundationData={...member,current_city:'Abuja',country:'Nigeria',birthdate:'1994-04-10',connection_modes:['training_partner','friendship'],languages:['English'],preferred_days:['Monday'],preferred_times:['Morning'],preferred_intensity:'moderate',lifestyle_interests:['Reading'],user_sports:[{sport_id:'running',name:'Running',experience_level:'intermediate',preferred_intensity:'moderate'}],email:'private@example.test',phone:'123',address:'Private address'};
@@ -234,42 +234,58 @@ test('foundation rechecks suspension inside its save transaction',async()=>{
 });
 test('discovery returns deterministic compatibility from profile data without private fields',async()=>{
  sqlHandler=async sql=>sql.includes('AS user_sports')?[{...foundationData,id:sql.includes('JOIN public.profiles v')?'member-b':member.id,distance_km:null}]:[];
- const result=await (await request('/api/discover')).json();
+ const result=await (await request('/api/discover?intention=play')).json();
  assert.deepEqual(result.people[0].sharedConnectionModes,['training_partner','friendship']);
  assert.equal(result.people[0].compatibility.score,100);assert.ok(result.people[0].compatibility.reasons.includes('Both enjoy running'));
  for(const key of ['birthdate','email','phone','address'])assert.ok(!Object.hasOwn(result.people[0],key));
- const again=await (await request('/api/discover')).json();assert.deepEqual(again.people[0].compatibility,result.people[0].compatibility);
+ const again=await (await request('/api/discover?intention=play')).json();assert.deepEqual(again.people[0].compatibility,result.people[0].compatibility);
 });
 test('discovery and likes authorize through the same mode and conditional dating predicate',async()=>{
  sqlHandler=async sql=>sql.includes('AS user_sports')?[{...foundationData,id:sql.includes('JOIN public.profiles v')?'member-b':member.id}]:[];
- await request('/api/discover');
+ await request('/api/discover?intention=date');
  const discoverSQL=calls.find(c=>c.sql.includes('JOIN public.profiles v')).sql;
  calls=[];
  sqlHandler=async sql=>sql.includes('feature_limits')?[{hits:1}]:sql.includes('SELECT p.* FROM public.profiles p JOIN public.profiles v')?[{...foundationData,id:'member-b'}]:[];
- assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:true})).status,200);
+ assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:true,intention:'date'})).status,200);
  const likeSQL=calls.find(c=>c.sql.includes('JOIN public.profiles v')).sql;
- const predicate=discoverSQL.slice(discoverSQL.indexOf('WHERE p.id<>v.id')+6,discoverSQL.indexOf('\n    AND($7 OR NOT EXISTS(SELECT 1 FROM public.swipes'));
- assert.ok(likeSQL.includes(predicate));
- assert.ok(predicate.includes('p.connection_modes && v.connection_modes'));
- assert.ok(predicate.includes("NOT ('dating'=ANY(p.connection_modes) AND 'dating'=ANY(v.connection_modes)) OR ("));
- assert.ok(predicate.includes('p.gender=ANY(v.interested_in) AND v.gender=ANY(p.interested_in)'));
- assert.ok(predicate.includes('BETWEEN v.age_min AND v.age_max'));assert.ok(predicate.includes('BETWEEN p.age_min AND p.age_max'));
+ for(const sql of [discoverSQL,likeSQL]){
+  assert.ok(sql.includes('p.connection_modes && v.connection_modes'));
+  assert.ok(sql.includes("'dating'=ANY(p.connection_modes) AND 'dating'=ANY(v.connection_modes)"));
+  assert.ok(sql.includes('p.gender=ANY(v.interested_in) AND v.gender=ANY(p.interested_in)'));
+  assert.ok(sql.includes('BETWEEN v.age_min AND v.age_max'));assert.ok(sql.includes('BETWEEN p.age_min AND p.age_max'));
+ }
  assert.ok(calls.some(c=>c.sql.startsWith('INSERT INTO public.swipes')));
+});
+test('dating preferences do not enter Play or Friend discovery or swipe authorization',async()=>{
+ for(const intention of ['play','friend']){
+  calls=[];
+  sqlHandler=async(sql,params=[])=>sql.includes('AS user_sports')?[{...foundationData,id:sql.includes('JOIN public.profiles v')?'member-b':member.id}]:sql.includes('feature_limits')?[{hits:1}]:sql.includes('SELECT p.* FROM public.profiles p JOIN')?[{...foundationData,id:'member-b'}]:[];
+  assert.equal((await request(`/api/discover?intention=${intention}`)).status,200);
+  const discovery=calls.find(c=>c.sql.includes('JOIN public.profiles v')).sql;
+  assert.match(discovery,/AND TRUE/);assert.doesNotMatch(discovery,/p\.gender=ANY\(v\.interested_in\)/);
+  calls=[];
+  assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:false,intention})).status,200);
+  const authorization=calls.find(c=>c.sql.includes('SELECT p.* FROM public.profiles p JOIN')).sql;
+  assert.match(authorization,/AND TRUE/);assert.doesNotMatch(authorization,/p\.gender=ANY\(v\.interested_in\)/);
+ }
 });
 test('an ineligible or newly blocked target cannot be liked or matched',async()=>{
  sqlHandler=async sql=>sql.includes('feature_limits')?[{hits:1}]:[];
- assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:true})).status,404);
+ assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:true,intention:'play'})).status,404);
+ const authorization=calls.find(c=>c.sql.includes('SELECT p.* FROM public.profiles p JOIN')).sql;
+ assert.match(authorization,/b\.blocker_id=v\.id AND b\.blocked_id=p\.id/);assert.match(authorization,/b\.blocker_id=p\.id AND b\.blocked_id=v\.id/);
  assert.ok(!calls.some(c=>c.sql.startsWith('INSERT INTO public.swipes')||c.sql.startsWith('INSERT INTO public.matches')));
 });
 test('reciprocal eligible likes create a match and return only public profile fields',async()=>{
  sqlHandler=async sql=>{
   if(sql.includes('feature_limits'))return [{hits:1}];
   if(sql.includes('JOIN public.profiles v'))return [{...foundationData,id:'member-b'}];
-  if(sql.startsWith('SELECT 1 FROM public.swipes'))return [{}];
-  if(sql.startsWith('SELECT id FROM public.matches'))return [{id:42}];
+  if(sql.startsWith('SELECT s.acted_at'))return [{acted_at:new Date().toISOString()}];
+  if(sql.includes('max(ended_at)'))return [{ended_at:null}];
+  if(sql.startsWith('INSERT INTO public.matches'))return [{id:42}];
   return [];
  };
- const response=await request('/api/swipes','POST',{targetId:'member-b',liked:true});
+ const response=await request('/api/swipes','POST',{targetId:'member-b',liked:true,intention:'play'});
  assert.equal(response.status,200);const {match}=await response.json();assert.equal(match.id,42);
  for(const key of ['birthdate','email','phone','address'])assert.ok(!Object.hasOwn(match.other,key));
  assert.ok(calls.some(c=>c.sql.startsWith('INSERT INTO public.matches')));
@@ -343,7 +359,7 @@ test('failed Auth admin acknowledgement is not reported as saved',async()=>{
 });
 
 test('received-like profiles require an active Plus subscription before discovery is queried',async()=>{
- const response=await request('/api/discover?likes=1');assert.equal(response.status,403);
+ const response=await request('/api/discover?intention=play&likes=1');assert.equal(response.status,403);
  assert.ok(!calls.some(c=>c.sql.includes('JOIN public.profiles v')));
  const entitlement=calls.find(c=>c.sql.includes('public.subscriptions'));
  assert.ok(entitlement.sql.includes('public.pacemate_plus_entitled(subscriptions)'));
@@ -367,7 +383,7 @@ test('active Plus can add a validated future city; the server enforces the five-
 
 test('free members can still send likes without a Plus entitlement',async()=>{
  sqlHandler=async sql=>sql.includes('feature_limits')?[{hits:1}]:sql.startsWith('SELECT p.* FROM public.profiles p JOIN public.profiles v')?[{...member,id:'member-b'}]:[];
- assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:true})).status,200);
+ assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:true,intention:'play'})).status,200);
  assert.ok(calls.some(c=>c.sql.startsWith('INSERT INTO public.swipes')));
  assert.ok(!calls.some(c=>c.sql.includes('public.subscriptions')));
 });
@@ -389,7 +405,7 @@ test('confirming a destination changes profile geography without changing billin
 
 test('destination discovery excludes temporary test perks when test access is disabled',async()=>{
  sqlHandler=async sql=>sql.includes('WHERE p.id=$1')?[foundationData]:[];
- const response=await request('/api/discover');assert.equal(response.status,200);
+ const response=await request('/api/discover?intention=play');assert.equal(response.status,200);
  const query=calls.find(c=>c.sql.includes('JOIN public.profiles v'));
  assert.ok(query);assert.equal(query.params[16],'{}');
  assert.equal(query.sql.split("sub.provider<>'test' OR sub.user_id=ANY($17::text[])").length-1,3);
@@ -407,10 +423,10 @@ test('received-like count does not disappear after the receiver likes or passes 
 });
 test('Plus received-like mode includes already answered incoming likes; ordinary Discover still excludes answered profiles',async()=>{
  sqlHandler=async sql=>sql.includes('public.subscriptions')?[{active:true}]:sql.includes('WHERE p.id=$1')?[foundationData]:[];
- assert.equal((await request('/api/discover?likes=1')).status,200);
+ assert.equal((await request('/api/discover?intention=play&likes=1')).status,200);
  const query=calls.find(c=>c.sql.includes('JOIN public.profiles v'));
  assert.match(query.sql,/AND\(\$7 OR NOT EXISTS\(SELECT 1 FROM public.swipes/);assert.equal(query.params[6],true);
- calls=[];assert.equal((await request('/api/discover')).status,200);
+ calls=[];assert.equal((await request('/api/discover?intention=play')).status,200);
  assert.equal(calls.find(c=>c.sql.includes('JOIN public.profiles v')).params[6],false);
 });
 
@@ -420,20 +436,166 @@ test('two free accounts liking each other create one match and retain one receiv
  sqlHandler=async(sql,params=[])=>{
   if(sql.includes('feature_limits'))return [{hits:1}];
   if(sql.startsWith('SELECT p.* FROM public.profiles p JOIN'))return [{...member,id:params[1]}];
-  if(sql.startsWith('INSERT INTO public.swipes')){swipes.set(params[0]+':'+params[1],params[2]);return [];}
-  if(sql.startsWith('SELECT 1 FROM public.swipes'))return swipes.get(params[0]+':'+params[1])?[{one:1}]:[];
-  if(sql.startsWith('INSERT INTO public.matches')){matches.set(params.join(':'),{id:22,user_a:params[0],user_b:params[1]});return [];}
-  if(sql.startsWith('SELECT id FROM public.matches'))return [matches.get(params.join(':'))].filter(Boolean);
-  if(sql.includes('AS "likesYou"'))return [{unread:0,likesYou:[...swipes].filter(([key,liked])=>liked&&key.endsWith(':'+params[0])).length}];
+  if(sql.startsWith('INSERT INTO public.swipes')){swipes.set(params[0]+':'+params[1]+':'+params[2],{liked:params[3],acted_at:new Date().toISOString()});return [{acted_at:swipes.get(params[0]+':'+params[1]+':'+params[2]).acted_at}];}
+  if(sql.startsWith('SELECT s.acted_at')){const s=swipes.get(params[0]+':'+params[1]+':'+params[2]);return s?.liked?[{acted_at:s.acted_at}]:[];}
+  if(sql.includes('max(ended_at)'))return [{ended_at:null}];
+  if(sql.startsWith('SELECT id FROM public.matches')&&sql.includes('ended_at IS NULL'))return [matches.get(params.join(':'))].filter(Boolean);
+  if(sql.startsWith('INSERT INTO public.matches')){const record={id:22,user_a:params[0],user_b:params[1],intention:params[2]};matches.set(params.join(':'),record);return [record];}
+  if(sql.includes('AS "likesYou"'))return [{unread:0,likesYou:[...swipes].filter(([key,value])=>value.liked&&key.split(':')[1]===params[0]).length}];
   return [];
  };
  profile={...member,id:'member-a'};
- const first=await request('/api/swipes','POST',{targetId:'member-b',liked:true});assert.equal(first.status,200);assert.equal((await first.json()).match,null);
+ const first=await request('/api/swipes','POST',{targetId:'member-b',liked:true,intention:'play'});assert.equal(first.status,200);assert.equal((await first.json()).match,null);
  profile={...member,id:'member-b'};
- const second=await request('/api/swipes','POST',{targetId:'member-a',liked:true});assert.equal(second.status,200);assert.equal((await second.json()).match.id,22);
+ const second=await request('/api/swipes','POST',{targetId:'member-a',liked:true,intention:'play'});assert.equal(second.status,200);assert.equal((await second.json()).match.id,22);
  assert.equal(matches.size,1);assert.equal(swipes.size,2);
  for(const id of ['member-a','member-b']){profile={...member,id};assert.equal((await(await request('/api/today/badges')).json()).likesYou,1);}
  assert.ok(!calls.some(c=>c.sql.includes('public.subscriptions')),'Mutual likes and matching must remain free');
+});
+
+test('the same pair can create independent Play, Friend, and Date matches',async()=>{
+ const swipes=new Map(),matches=new Map();let nextId=100;
+ globalThis.fetch=async url=>Response.json({id:profile.id,email:'fixture@example.test',app_metadata:{pacemate_adult_terms_accepted_at:'2026-11-08T00:00:00Z'}});
+ sqlHandler=async(sql,params=[])=>{
+  if(sql.includes('feature_limits'))return [{hits:1}];
+  if(sql.startsWith('SELECT p.* FROM public.profiles p JOIN'))return [{...member,id:params[1]}];
+  if(sql.startsWith('INSERT INTO public.swipes')){const key=params.slice(0,3).join(':');const swipe={liked:params[3],acted_at:new Date().toISOString()};swipes.set(key,swipe);return [{acted_at:swipe.acted_at}];}
+  if(sql.startsWith('SELECT s.acted_at')){const swipe=swipes.get(params.join(':'));return swipe?.liked?[{acted_at:swipe.acted_at}]:[];}
+  if(sql.includes('max(ended_at)'))return [{ended_at:null}];
+  if(sql.startsWith('SELECT id FROM public.matches')&&sql.includes('ended_at IS NULL'))return [matches.get(params.join(':'))].filter(Boolean);
+  if(sql.startsWith('INSERT INTO public.matches')){const match={id:nextId++,user_a:params[0],user_b:params[1],intention:params[2]};matches.set(params.join(':'),match);return [match];}
+  return [];
+ };
+ for(const intention of ['play','friend','date']){
+  profile={...member,id:'member-a'};
+  assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:true,intention})).status,200);
+  profile={...member,id:'member-b'};
+  const reciprocal=await request('/api/swipes','POST',{targetId:'member-a',liked:true,intention});
+  assert.equal(reciprocal.status,200);const result=(await reciprocal.json()).match;assert.ok(result,`Expected reciprocal ${intention} likes to match`);assert.equal(result.intention,intention);
+ }
+ assert.equal(matches.size,3);assert.deepEqual([...matches.values()].map(m=>m.intention),['play','friend','date']);
+});
+
+test('a Play like and a Friend like never form a reciprocal match',async()=>{
+ const swipes=new Map();let matchInserts=0;
+ globalThis.fetch=async url=>Response.json({id:profile.id,email:'fixture@example.test',app_metadata:{pacemate_adult_terms_accepted_at:'2026-11-08T00:00:00Z'}});
+ sqlHandler=async(sql,params=[])=>{
+  if(sql.includes('feature_limits'))return [{hits:1}];
+  if(sql.startsWith('SELECT p.* FROM public.profiles p JOIN'))return [{...member,id:params[1]}];
+  if(sql.startsWith('INSERT INTO public.swipes')){const key=params.slice(0,3).join(':');swipes.set(key,{liked:params[3],acted_at:new Date().toISOString()});return [{acted_at:swipes.get(key).acted_at}];}
+  if(sql.startsWith('SELECT s.acted_at')){const swipe=swipes.get(params.join(':'));return swipe?.liked?[{acted_at:swipe.acted_at}]:[];}
+  if(sql.includes('max(ended_at)'))return [{ended_at:null}];
+  if(sql.startsWith('INSERT INTO public.matches')){matchInserts++;return [{id:201}];}
+  return [];
+ };
+ profile={...member,id:'member-a'};assert.equal((await request('/api/swipes','POST',{targetId:'member-b',liked:true,intention:'play'})).status,200);
+ profile={...member,id:'member-b'};assert.equal((await request('/api/swipes','POST',{targetId:'member-a',liked:true,intention:'friend'})).status,200);
+ assert.equal(matchInserts,0);
+});
+
+test('new swipe creation rejects missing, null, or unknown intention',async()=>{
+ sqlHandler=async sql=>sql.includes('feature_limits')?[{hits:1}]:[];
+ for(const intention of [undefined,null,'dating']){
+  const payload={targetId:'member-b',liked:true};if(intention!==undefined)payload.intention=intention;
+  assert.equal((await request('/api/swipes','POST',payload)).status,422);
+ }
+ assert.ok(!calls.some(c=>c.sql.startsWith('INSERT INTO public.swipes')));
+});
+
+test('blocked-pair handling closes matches without deleting chat or mutating swipe history',async()=>{
+ let blockInserted=false;
+ sqlHandler=async(sql)=>{
+  if(sql.includes('feature_limits'))return [{hits:1}];
+  if(sql.includes('SELECT id FROM public.profiles'))return [{id:'member-b'}];
+  return [];
+ };
+ globalThis.__communityExecute=async query=>{calls.push({sql:JSON.stringify(query.queryChunks||query)});return [];};
+ globalThis.__communityInsert=()=>({values:()=>({onConflictDoNothing:async()=>{blockInserted=true;}})});
+ const response=await request('/api/block','POST',{userId:'member-b'});
+ assert.equal(response.status,200);assert.equal(blockInserted,true);
+ assert.equal(calls.length,2);assert.match(calls[1].sql,/UPDATE public\.matches SET ended_at/);
+ assert.doesNotMatch(calls[1].sql,/DELETE FROM public\.(matches|conversations|messages)|UPDATE swipes SET liked=false/i);
+ delete globalThis.__communityInsert;delete globalThis.__communityExecute;
+});
+
+test('archived conversations remain readable but reject message, reaction, receipt, and attachment writes',async()=>{
+ const archived={id:22,user_a:member.id,user_b:'member-b',other_id:'member-b',intention:'play',ended_at:'2026-11-10T10:00:00Z'};
+ sqlHandler=async(sql,params=[])=>{
+  if(sql.startsWith('SELECT m.*,CASE'))return params[2]==='read'?[archived]:[];
+  if(sql.includes('public.messages m LEFT JOIN'))return [{id:7,match_id:22,sender_id:'member-b',body:'Saved history',created_at:'2026-11-10T09:00:00Z'}];
+  if(sql.includes('SELECT last_read_id'))return [{last_read_id:0}];
+  if(sql.startsWith('SELECT * FROM public.profiles'))return [{...member,id:'member-b'}];
+  if(sql.includes('feature_limits'))return [{hits:1}];
+  return [];
+ };
+ const history=await request('/api/matches/22/messages');assert.equal(history.status,200);assert.equal((await history.json()).messages[0].body,'Saved history');
+ assert.equal((await request('/api/matches/22/messages','POST',{body:'New contact'})).status,404);
+ assert.equal((await request('/api/matches/22/messages','PUT',{lastReadId:7})).status,409);
+ assert.equal((await request('/api/matches/22/chat','POST',{action:'reaction',messageId:7,emoji:'👍'})).status,404);
+ assert.equal((await request('/api/matches/22/attachments','POST',{})).status,404);
+ assert.ok(!calls.some(c=>c.sql.startsWith('INSERT INTO public.messages')||c.sql.startsWith('INSERT INTO public.message_reactions')||c.sql.startsWith('INSERT INTO public.chat_attachments')));
+});
+
+test('a blocked participant cannot retrieve even an archived conversation',async()=>{
+ sqlHandler=async sql=>sql.startsWith('SELECT m.*,CASE')?[]:[];
+ assert.equal((await request('/api/matches/22/messages')).status,404);
+ assert.equal((await request('/api/matches/22/chat')).status,404);
+});
+
+test('reaction and mute writes recheck the active unblocked match under the pair lock',async()=>{
+ const active={id:22,user_a:member.id,user_b:'member-b',other_id:'member-b',ended_at:null};
+ sqlHandler=async(sql,params=[])=>{
+  if(sql.includes('SELECT m.*,CASE'))return [active];
+  if(sql.startsWith('SELECT 1 FROM public.matches m'))return [{}];
+  if(sql.startsWith('SELECT id FROM public.messages'))return [{id:7}];
+  if(sql.startsWith('SELECT emoji'))return [];
+  return [];
+ };
+ assert.equal((await request('/api/matches/22/chat','POST',{action:'reaction',messageId:7,emoji:'👍'})).status,200);
+ assert.ok(calls.some(c=>c.sql.startsWith('INSERT INTO public.message_reactions')));
+ calls=[];
+ assert.equal((await request('/api/matches/22/chat','POST',{action:'mute',muted:true})).status,200);
+ assert.ok(calls.some(c=>c.sql.startsWith('INSERT INTO public.conversation_members')));
+ calls=[];
+ sqlHandler=async(sql)=>sql.includes('SELECT m.*,CASE')?[active]:sql.startsWith('SELECT 1 FROM public.matches m')?[]:[];
+ assert.equal((await request('/api/matches/22/chat','POST',{action:'reaction',messageId:7,emoji:'👍'})).status,404);
+ assert.ok(!calls.some(c=>c.sql.startsWith('INSERT INTO public.message_reactions')));
+});
+
+test('unmatching closes only the selected intention-specific match and preserves records',async()=>{
+ const active={id:42,user_a:member.id,user_b:'member-b',other_id:'member-b',intention:'friend',ended_at:null};
+ sqlHandler=async(sql,params=[])=>{
+  if(sql.startsWith('SELECT m.*,CASE'))return [active];
+  if(sql.startsWith('UPDATE public.matches SET ended_at')){assert.deepEqual(params,[42,member.id]);return [{id:42}];}
+  return [];
+ };
+ assert.equal((await request('/api/matches/42','DELETE')).status,200);
+ const end=calls.find(c=>c.sql.startsWith('UPDATE public.matches SET ended_at'));
+ assert.ok(end.sql.includes('WHERE id=$1')&&end.sql.includes('ended_at IS NULL'));
+ assert.ok(!calls.some(c=>/DELETE FROM public\.(matches|conversations|messages)|UPDATE public\.swipes/i.test(c.sql)));
+});
+
+test('both participants must like again after an intention-specific match closes',async()=>{
+ const closedAt=new Date(Date.now()-1000).toISOString(),swipes=new Map();let matchInsertCount=0;
+ globalThis.fetch=async url=>Response.json({id:profile.id,email:'fixture@example.test',app_metadata:{pacemate_adult_terms_accepted_at:'2026-11-08T00:00:00Z'}});
+ sqlHandler=async(sql,params=[])=>{
+  if(sql.includes('feature_limits'))return [{hits:1}];
+  if(sql.startsWith('SELECT p.* FROM public.profiles p JOIN'))return [{...member,id:params[1]}];
+  if(sql.startsWith('INSERT INTO public.swipes')){const key=params.slice(0,3).join(':');const value={liked:params[3],acted_at:new Date().toISOString()};swipes.set(key,value);return [{acted_at:value.acted_at}];}
+  if(sql.startsWith('SELECT s.acted_at')){const value=swipes.get(params.join(':'));return value?.liked?[{acted_at:value.acted_at}]:[];}
+  if(sql.includes('max(ended_at)'))return [{ended_at:closedAt}];
+  if(sql.startsWith('INSERT INTO public.matches')){matchInsertCount++;return [{id:300}];}
+  return [];
+ };
+ const oldLike=new Date(Date.parse(closedAt)-5000).toISOString();
+ swipes.set('member-a:member-b:play',{liked:true,acted_at:oldLike});
+ swipes.set('member-b:member-a:play',{liked:true,acted_at:oldLike});
+ profile={...member,id:'member-a'};
+ const first=await request('/api/swipes','POST',{targetId:'member-b',liked:true,intention:'play'});
+ assert.equal((await first.json()).match,null);assert.equal(matchInsertCount,0);
+ profile={...member,id:'member-b'};
+ const second=await request('/api/swipes','POST',{targetId:'member-a',liked:true,intention:'play'});
+ assert.equal((await second.json()).match.id,300);assert.equal(matchInsertCount,1);
 });
 
 test('Free members can save, view, replace and clear their primary destination without Plus',async()=>{
@@ -468,7 +630,7 @@ test('primary destination validates date and city, uses authenticated ownership 
 });
 
 test('empty Discover results do not issue an unnecessary second profile query',async()=>{
- const response=await request('/api/discover');assert.equal(response.status,200);assert.deepEqual((await response.json()).people,[]);
+ const response=await request('/api/discover?intention=play');assert.equal(response.status,200);assert.deepEqual((await response.json()).people,[]);
  assert.ok(!calls.some(c=>c.sql.includes('WHERE p.id=$1')));
 });
 

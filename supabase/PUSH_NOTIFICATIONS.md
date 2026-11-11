@@ -1,5 +1,7 @@
 # Current message and match notifications
 
+> **Staging hold:** This file describes local implementation and historical setup procedures. Hosted triggers, Vault values, schedules, and deployed function versions are not verified. Do not run its SQL, upload secrets, or deploy until the staging checklist is approved. The only approved ref is `clwgczzpucjdguyfctcg`.
+
 All new text, link and photo messages use the authenticated message API, which queues delivery after commit. Previously, plain text/link inserts went directly through REST and bypassed that queue. The PaceMate match-chat flow now sends Web Push immediately in an EdgeRuntime background task after a message or mutual match commits. It reuses the existing notifications outbox and delivery states. No new SQL, Database Webhook or external notification provider is required for this path.
 
 Subscriptions are registered through authenticated /api/notifications/push, which saves the device and sets notification_settings.push_enabled. Subscription status and removal are owner-scoped. A known endpoint cannot be reassigned to another user. Free and Plus members have the same notification access.
@@ -52,16 +54,16 @@ On an authenticated machine, run once (rotating VAPID keys invalidates existing 
 
 ```sh
 npx supabase@2.39.2 login
-VAPID_SUBJECT=mailto:trypacemate@gmail.com node scripts/setup-push-secrets.mjs hgnxappuulufvdymodad
+VAPID_SUBJECT=mailto:trypacemate@gmail.com node scripts/setup-push-secrets.mjs clwgczzpucjdguyfctcg
 ```
 
 Set `SUPABASE_CLI` to a working CLI path if necessary. The script generates a P-256 VAPID pair, uploads `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, and `PUSH_WEBHOOK_SECRET` through a temporary mode-0600 file, then deletes that file. It never prints the private key. It prints only the public key, which can be set as `VITE_VAPID_PUBLIC_KEY`. Existing `/api/settings` also returns the Edge secret public key. The temporary plaintext private key is only in the OS temporary directory during upload; it is never in source or the browser bundle.
 
-Copy the shared webhook token from the ignored local `.env.push-webhook` file into Dashboard Vault as `push_webhook_secret`, then delete that local file. Add `push_function_url` to Vault with `https://hgnxappuulufvdymodad.supabase.co/functions/v1/send-push`. Never put the service-role key in a webhook header. The function explicitly verifies `x-push-secret`; gateway JWT verification is disabled for this webhook.
+Copy the shared webhook token from the ignored local `.env.push-webhook` file into Dashboard Vault as `push_webhook_secret`, then delete that local file. Add `push_function_url` to Vault with `https://clwgczzpucjdguyfctcg.supabase.co/functions/v1/send-push`. Never put the service-role key in a webhook header. The function explicitly verifies `x-push-secret`; gateway JWT verification is disabled for this webhook.
 
 ```sh
-npx supabase@2.39.2 functions deploy send-push --project-ref hgnxappuulufvdymodad --use-api
-npx supabase@2.39.2 functions deploy pacemate --project-ref hgnxappuulufvdymodad --use-api
+npx supabase@2.39.2 functions deploy send-push --project-ref clwgczzpucjdguyfctcg --use-api
+npx supabase@2.39.2 functions deploy pacemate --project-ref clwgczzpucjdguyfctcg --use-api
 npm run build
 ```
 

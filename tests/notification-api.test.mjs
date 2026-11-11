@@ -9,7 +9,7 @@ const bundle=await rolldown({input:'supabase/functions/pacemate/handlers/notific
  }}]});
 const output=await bundle.generate({format:'esm'});await bundle.close();const {default:handler}=await import('data:text/javascript;base64,'+Buffer.from(output.output[0].code).toString('base64'));
 const request=(method,body)=>new Request('https://example.test/api/notifications/test',{method,...(body?{body:JSON.stringify(body)}:{})});
-test.beforeEach(()=>{f.user='recipient';f.state='sent';f.enabled=true;f.sent=[];f.limits=[];f.queries=[];f.rows=async(sql,args)=>{f.queries.push({sql,args});return [{push_enabled:f.enabled}];};});
+test.beforeEach(()=>{f.user='recipient';f.state='sent';f.enabled=true;f.sent=[];f.limits=[];f.queries=[];f.rows=async(sql,args)=>{f.queries.push({sql,args});if(sql.startsWith('SELECT count(*)'))return [{unread:0}];if(sql.startsWith('SELECT id,kind'))return [];return [{push_enabled:f.enabled}];};});
 test('test pushes use only the authenticated owner and are rate limited',async()=>{
  const response=await handler(request('POST',{userId:'someone-else'}),{params:{action:'test'}});
  assert.equal(response.status,200);assert.equal(f.sent[0].user_id,'recipient');assert.deepEqual(f.limits[0],['recipient','push-test',3,60]);assert.deepEqual(f.queries[0].args,['recipient']);
@@ -25,4 +25,11 @@ test('test push reports missing configuration or subscriptions instead of a fals
 test('chat acknowledgements clear only the owner’s already-read message notifications',async()=>{
  await handler(request('PUT',{matchId:12}),{params:{}});const query=f.queries[0];
  assert.deepEqual(query.args,['recipient','/app/matches/12',12]);assert.match(query.sql,/n.user_id=\$1/);assert.match(query.sql,/m.read_at IS NOT NULL/);assert.match(query.sql,/n.kind='message'/);
+});
+test('closed or blocked social notifications are hidden from the inbox and unread badge',async()=>{
+ const req=new Request('https://example.test/api/notifications');
+ await handler(req,{params:{}});
+ const list=f.queries.find(q=>q.sql.startsWith('SELECT id,kind'));
+ const badge=f.queries.find(q=>q.sql.startsWith('SELECT count(*)'));
+ for(const query of [list,badge]){assert.match(query.sql,/n.kind NOT IN \('match','message'\)/);assert.match(query.sql,/m.ended_at IS NULL/);assert.match(query.sql,/public.blocks/);}
 });

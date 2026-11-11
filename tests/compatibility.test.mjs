@@ -4,6 +4,14 @@ import {computeCompatibility as compute,COMPATIBILITY_WEIGHTS,profileCompletenes
 const person=(id,extra={})=>({id,age:28,connection_modes:['training_partner'],city:'Abuja',country:'Nigeria',preferred_days:['Monday'],preferred_times:['Morning'],preferred_intensity:'moderate',lifestyle_interests:['Reading'],user_sports:[{sport_id:'running',name:'Running',experience_level:'intermediate',preferred_intensity:'moderate'}],...extra});
 test('identical complete public preferences earn 100 with real reasons',()=>{const result=compute(person('a'),person('b'));assert.equal(result.score,100);assert.equal(result.eligible,true);assert.ok(result.reasons.includes('Both enjoy running'));assert.equal(Object.values(COMPATIBILITY_WEIGHTS).reduce((a,b)=>a+b),100);});
 test('disjoint connection modes are ineligible regardless of shared sports',()=>assert.equal(compute(person('a'),person('b',{connection_modes:['friendship']})).eligible,false));
+test('compatibility is scoped to the selected intention when a pair shares several modes',()=>{
+ const a=person('a',{connection_modes:['training_partner','friendship','dating']});
+ const b=person('b',{connection_modes:['training_partner','friendship','dating']});
+ assert.ok(compute(a,b,'play').reasons.includes('Both open to training partner'));
+ assert.ok(compute(a,b,'friend').reasons.includes('Both open to friendship'));
+ assert.ok(compute(a,b,'date').reasons.includes('Both open to dating'));
+ assert.equal(compute(person('a',{connection_modes:['training_partner']}),person('b',{connection_modes:['friendship']}),'play').eligible,false);
+});
 test('dating-only pairing requires both ages 18 or older',()=>{assert.equal(compute(person('a',{age:17,connection_modes:['dating']}),person('b',{connection_modes:['dating']})).eligible,false);assert.equal(compute(person('a',{age:18,connection_modes:['dating']}),person('b',{connection_modes:['dating']})).eligible,true);});
 test('missing information earns no invented points',()=>{const result=compute({id:'a',connection_modes:['friendship']},{id:'b',connection_modes:['friendship']});assert.equal(result.score,5);assert.equal(result.reasons.length,1);});
 test('partial sports overlap, experience and availability affect deterministic symmetric scores',()=>{const a=person('a'),b=person('b',{preferred_days:['Tuesday'],city:'Lagos',preferred_intensity:'high',user_sports:[{sport_id:'running',name:'Running',experience_level:'advanced'},{sport_id:'cycling',name:'Cycling',experience_level:'beginner'}]});const r=compute(a,b);assert.ok(r.score>5&&r.score<100);assert.equal(r.breakdown.availability,0);assert.equal(r.breakdown.sports,12.5);assert.deepEqual(compute(a,b),r);assert.equal(compute(b,a).score,r.score);});

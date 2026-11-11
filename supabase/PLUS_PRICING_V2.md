@@ -2,6 +2,8 @@
 
 # Plus pricing bar update
 
+> **Historical proposal only:** Billing is not integrated, prices are not live, and this file is not an instruction to apply a migration. See [GLOBAL_BILLING_REPORT.md](../GLOBAL_BILLING_REPORT.md).
+
 This user-approved update replaces the earlier launch prices for NEW sales. Existing subscription contracts and provider price references remain locked to their original terms.
 
 | Market | Interval | Full charge | Displayed comparison rate |

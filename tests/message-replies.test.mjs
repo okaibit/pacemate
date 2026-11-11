@@ -4,7 +4,7 @@ import {rolldown} from 'rolldown';
 const f=globalThis.__messageReplies={};
 const bundle=await rolldown({input:'supabase/functions/pacemate/handlers/messages.ts',plugins:[{name:'reply-fixtures',resolveId(id){for(const name of ['http.ts','feature-db.ts','push-delivery.ts','supabase.ts'])if(id.endsWith('/'+name))return '\0'+name;},load(id){
  if(id==='\0http.ts')return `export const handle=f=>f,json=(data,status=200)=>Response.json(data,{status}),body=req=>req.json(),str=(v,max)=>typeof v==='string'?v.slice(0,max):'',publicProfile=v=>v;export class HttpError extends Error{constructor(status,message){super(message);this.status=status;}}`;
- if(id==='\0feature-db.ts')return `export const rows=(...args)=>globalThis.__messageReplies.rows(...args),transaction=fn=>fn({unsafe:(...args)=>globalThis.__messageReplies.rows(...args)}),rateLimit=async()=>{},camel=v=>v,requireMatch=async()=>({user:{id:'me'},match:{user_a:'me',user_b:'other'}});`;
+ if(id==='\0feature-db.ts')return `export const rows=(...args)=>globalThis.__messageReplies.rows(...args),transaction=fn=>fn({unsafe:(...args)=>globalThis.__messageReplies.rows(...args)}),lockActiveMatch=async(tx)=>{if(!(await tx.unsafe('SELECT 1 FROM public.matches')).length)throw Error('closed');},rateLimit=async()=>{},camel=v=>v,requireMatch=async()=>({user:{id:'me'},match:{user_a:'me',user_b:'other'}});`;
  if(id==='\0push-delivery.ts')return `export const queueSocialPush=key=>globalThis.__messageReplies.pushes.push(key);`;
  if(id==='\0supabase.ts')return `export const signedPhoto=async()=>'';`;
  }}]});

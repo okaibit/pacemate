@@ -27,6 +27,9 @@ function loadUpcomingSession(){
 }
 const filtersOpen=ref(false);
 const people = ref([]), loading = ref(true), err = ref(""), busy = ref(false);
+const intentions=[{id:'play',mode:'training_partner',label:'Play'},{id:'friend',mode:'friendship',label:'Friend'},{id:'date',mode:'dating',label:'Date'}];
+const enabledIntentions=()=>intentions.filter(i=>(session.profile?.connectionModes??session.profile?.connection_modes??[]).includes(i.mode));
+const intention=ref(enabledIntentions()[0]?.id||'play');
 const country=ref("");
 const requestReference=ref("");
 const scope = ref("anywhere"), sport = ref(""), arriving = ref(false);
@@ -67,7 +70,7 @@ async function load() {
   let deadline;
   loading.value = true; err.value = ""; requestReference.value="";people.value=[];
   try {
-    const q = new URLSearchParams({ scope: scope.value, ...(country.value?{country:country.value}:{}), ...(city.value ? {city:city.value}:{}), ...(radius.value ? {radius:radius.value}:{}), ...(likes.value ? {likes:"1"}:{}), ...(sport.value ? { sport: sport.value } : {}), ...(arriving.value ? { arriving: "1" } : {}) });
+    const q = new URLSearchParams({ intention:intention.value,scope: scope.value, ...(country.value?{country:country.value}:{}), ...(city.value ? {city:city.value}:{}), ...(radius.value ? {radius:radius.value}:{}), ...(likes.value ? {likes:"1"}:{}), ...(sport.value ? { sport: sport.value } : {}), ...(arriving.value ? { arriving: "1" } : {}) });
     const result=await Promise.race([
       api(`/api/discover?${q}`,{expectedUserId:owner}),
       new Promise((_,reject)=>{deadline=setTimeout(()=>reject(new Error('Discover is taking too long to respond. Please try again.')),30000);}),
@@ -82,7 +85,8 @@ async function load() {
   } }
   finally { clearTimeout(deadline);if(active&&token===sequence)loading.value = false; }
 }
-watch([scope, sport, arriving, likes,country], load);
+watch([scope, sport, arriving, likes,country,intention], load);
+watch(()=>session.profile?.connectionModes??session.profile?.connection_modes,()=>{const enabled=enabledIntentions();if(!enabled.some(i=>i.id===intention.value))intention.value=enabled[0]?.id||'play';},{deep:true,immediate:true});
 onMounted(()=>{load();loadUpcomingSession();api("/api/billing/config").then(b=>plus.value=b.active).catch(()=>{});});
 
 async function swipe(liked) {
@@ -90,7 +94,7 @@ async function swipe(liked) {
   if (!p || busy.value) return;
   busy.value = true; err.value = ""; notice.value = "";
   try {
-    const r = await api("/api/swipes", { method: "POST", body: { targetId: p.id, liked } });
+    const r = await api("/api/swipes", { method: "POST", body: { targetId: p.id, liked, intention:intention.value } });
     people.value=people.value.filter(person=>person.id!==p.id);
     if (r.match) match.value = r.match;
     if (people.value.length < 3) load();
@@ -113,6 +117,7 @@ onBeforeUnmount(() => { active=false; window.removeEventListener("keydown", onKe
 <template>
   <div ref="page" class="discover-page" :class="{'has-profile':people.length>0}">
     <header class="discover-top"><h1 class="discover-heading">Discover<span>.</span></h1><button class="filter-button" @click="filtersOpen=true" aria-label="Discovery filters" aria-haspopup="dialog"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--card)"/><circle cx="15" cy="17" r="3" fill="var(--card)"/></svg><span>Filters</span><i v-if="sport||arriving||city||radius||likes||country"/></button></header>
+    <div class="intention-tabs" role="group" aria-label="Connection intention"><button v-for="item in enabledIntentions()" :key="item.id" :aria-pressed="intention===item.id" :class="{selected:intention===item.id}" @click="intention=item.id">{{ item.label }}</button></div>
     <div class="discovery-scope"><button :aria-pressed="scope==='anywhere'" :class="{selected:scope==='anywhere'}" @click="selectScope('anywhere')">Anywhere</button><button :aria-pressed="scope==='city'" :class="{selected:scope==='city'}" @click="selectScope('city')">{{ session.profile.currentCity }}</button><button v-if="plus" :aria-pressed="likes" :class="{selected:likes}" @click="likes=!likes">Likes you</button></div>
     <Modal v-if="filtersOpen" label="Discovery filters" @close="filtersOpen=false"><h2 class="filter-title">Your kind of people</h2>
     <label class="field"><span>Country or territory</span><select v-model="country"><option value="">Anywhere</option><option v-for="item in COUNTRIES" :key="item.code" :value="item.code">{{item.name}}</option></select></label>
@@ -178,6 +183,7 @@ onBeforeUnmount(() => { active=false; window.removeEventListener("keydown", onKe
 .filter-button{display:flex;align-items:center;gap:9px;min-height:44px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font-size:12px;font-weight:600;cursor:pointer}
 .filter-button i{width:6px;height:6px;background:var(--coral)}
 .discovery-scope{display:flex;gap:26px;border-bottom:1px solid var(--line);margin-bottom:24px}
+.intention-tabs{display:flex;gap:10px;margin:0 0 8px}.intention-tabs button{border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--mute);padding:8px 14px;min-height:38px;font:600 12px var(--body)}.intention-tabs button.selected{background:var(--cta);border-color:var(--cta);color:var(--on)}
 .discovery-scope button{border:0;border-bottom:2px solid transparent;background:none;padding:13px 0;min-height:44px;color:var(--mute);font-size:13px;cursor:pointer}
 .discovery-scope .selected{border-bottom-color:var(--green);color:var(--ink);font-weight:600}
 .people-workspace{max-width:820px;margin:0 auto}.discovery-stage{min-width:0}
