@@ -38,6 +38,9 @@ test('signed-in app renders the routed page within navigation, not a standalone 
  app.component('RouterLink',{props:['to'],setup:(props,{slots})=>()=>h('a',{href:props.to},slots.default?.())});
  const html=await renderToString(app);
  assert.match(html,/data-test="routed-content"/);assert.match(html,/aria-label="App"/);
- for(const label of ['Discover','Matches','Sessions','Today','Profile'])assert.ok(html.includes(label));
+ for(const label of ['Discover','Matches','Explore','Today','Profile'])assert.ok(html.includes(label));
+ const layoutSource=readFileSync('src/views/AppLayout.vue','utf8');
+ assert.equal((layoutSource.match(/\["\/app\/events", "Explore", null\]/g)||[]).length,2);
+ assert.doesNotMatch(layoutSource,/\["\/app\/events", "(?:Events|Sessions)", null\]/);
  assert.ok(!html.includes('Add photo'));
 });

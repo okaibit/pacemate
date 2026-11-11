@@ -20,12 +20,12 @@ const tabs = computed(() => windowWidth.value < 1050 ? [
   ["/app/discover", "Discover", null],
   ["/app/today", "Today", null],
   ["/app/matches", "Matches", "unread"],
-  ["/app/events", "Events", null],
+  ["/app/events", "Explore", null],
   ["/app/profile", "Profile", null],
 ] : [
   ["/app/discover", "Discover", null],
   ["/app/matches", "Matches", "unread"],
-  ["/app/events", "Sessions", null],
+  ["/app/events", "Explore", null],
   ["/app/today", "Today", null],
   ["/app/profile", "Profile", null],
 ]);
@@ -67,7 +67,7 @@ watch(()=>session.user?.id,()=>{incoming.value=null;setUnreadAppBadge(0);alerts.
           <template v-if="label==='Today'"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></template>
           <template v-else-if="label==='Discover'"><circle cx="12" cy="12" r="9"/><path d="m16.5 7.5-3 6-6 3 3-6Z"/></template>
           <template v-else-if="label==='Matches'"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-2 2V11.5A8.5 8.5 0 0 1 10.5 3h2A8.5 8.5 0 0 1 21 11.5Z"/><path d="M7 11h10m-10 4h6"/></template>
-          <template v-else-if="label==='Sessions'||label==='Events'"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M7 3v4m10-4v4M3 11h18m-13 5h2m4 0h2"/></template>
+          <template v-else-if="label==='Explore'"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M7 3v4m10-4v4M3 11h18m-13 5h2m4 0h2"/></template>
           <template v-else><circle cx="12" cy="8" r="4"/><path d="M4 22v-2a8 8 0 0 1 16 0v2"/></template>
         </svg><span>{{ label }}</span>
         <span v-if="badge && badges[badge]" class="dot" :aria-label="badges[badge] + ' new'">{{ badges[badge] > 99 ? "99+" : badges[badge] }}</span>
