@@ -87,7 +87,11 @@ async function submit() {
     if (props.mode === "login") await finish(await login(email.value.trim(), password.value));
     else if (props.mode === "signup") {
       const user = await signup(email.value.trim(), password.value);
-      if (user.emailVerified) await finish(user);
+      if (user.emailVerified) {
+        // The 18+/terms box was ticked on this form, so record it now instead of asking again.
+        try { await api("/api/me", { method: "POST", body: { adultTermsAccepted: true }, expectedUserId: user.id }); } catch {}
+        await finish(user);
+      }
       else done.value = `We sent a confirmation link to ${email.value.trim()}. Open it on this device to finish creating your account.`;
     } else {
       await requestPasswordRecovery(email.value.trim());
@@ -148,6 +152,7 @@ button:disabled{opacity:.5;cursor:not-allowed}.adult{display:flex;text-align:lef
 .text-button{min-height:44px;border:0;padding:10px 4px;background:none;color:var(--ink);font:500 12px var(--body);text-decoration:underline;cursor:pointer;text-underline-offset:3px}
 .help-link{display:inline-block;min-height:44px;padding:14px 4px;font-size:12px;text-underline-offset:3px}.switch-mode{font-size:12px;color:var(--mute);margin:16px 0 0;line-height:1.7}.switch-mode a{color:var(--ink);text-underline-offset:3px}
 @media(max-width:480px){.auth-sheet{padding:40px 24px 26px}.auth-sheet h1{font-size:29px}.auth-background{padding:28px 20px}}
+.adult input:disabled{opacity:1;cursor:progress}
 </style>
 
 <style scoped>.brand{display:inline-flex;align-items:center;gap:8px}</style>
