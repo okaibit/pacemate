@@ -5,4 +5,5 @@
   <url><loc>https://trypacemate.omejeelijahokai02.workers.dev/safety</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://trypacemate.omejeelijahokai02.workers.dev/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://trypacemate.omejeelijahokai02.workers.dev/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://trypacemate.omejeelijahokai02.workers.dev/help</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
 </urlset>

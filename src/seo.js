@@ -2,7 +2,7 @@
 // (per-page meta tags) and vite.config.js (structured data + crawlable HTML).
 export const SITE_URL = "https://trypacemate.omejeelijahokai02.workers.dev";
 export const SITE_NAME = "Pacemate";
-export const DEFAULT_TITLE = "Pacemate: sports dating, at your pace";
+export const DEFAULT_TITLE = "Pacemate: sports dating for athletes and active singles";
 export const DEFAULT_DESCRIPTION =
   "Meet dates through shared sports, interests and local activities. Discover people nearby or while travelling, with separate options for friendship and training partners.";
 
@@ -54,9 +54,10 @@ export const DESCRIPTIONS = {
   "/safety": "Safety tips for meeting people from Pacemate, on and off the app.",
   "/signup": "Create a free Pacemate profile to meet dates through shared sports and interests. Friendship and training partner connections are also available.",
   "/login": "Log in to Pacemate.",
+  "/help": "Answers to common questions about using Pacemate, from matching and messages to safety and your account.",
 };
 
-export const INDEXABLE = ["/", "/signup", "/privacy", "/terms", "/safety"];
+export const INDEXABLE = ["/", "/signup", "/privacy", "/terms", "/safety", "/help"];
 
 export function structuredData() {
   const org = { "@type": "Organization", "@id": `${SITE_URL}/#org`, name: SITE_NAME, url: SITE_URL, logo: `${SITE_URL}/favicon.svg` };
