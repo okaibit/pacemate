@@ -100,7 +100,7 @@ async function submit() {
 
 <template>
  <main class="auth-page">
-  <div class="auth-background" aria-hidden="true"><span class="brand-lockup"><img class="brand-mark" src="/logo-mark.svg" alt="" aria-hidden="true">Pacemate</span><p>Meet through what<br>you love doing.</p></div>
+  <div class="auth-background" aria-hidden="true"></div>
   <Modal :label="mode==='signup'?'Create your Pacemate account':'Log in to Pacemate'" plain flush @close="close">
    <section class="auth-sheet">
     <button type="button" class="close" :disabled="busy" aria-label="Close" @click="close">×</button>
@@ -134,8 +134,8 @@ async function submit() {
  </main>
 </template>
 <style scoped>
-.auth-page{min-height:100svh;background:var(--bg);color:var(--ink)}
-.auth-background{max-width:1200px;margin:auto;padding:42px 32px}.auth-background>span{font:700 28px var(--display);letter-spacing:-1px}.auth-background>p{font:600 clamp(44px,7vw,100px)/1.05 var(--display);letter-spacing:-.04em;margin:18vh 0 0}
+.auth-page{position:relative;min-height:100svh;background:#102c23;color:var(--ink)}
+.auth-background{position:fixed;inset:0;background:linear-gradient(180deg,#102c2380,#102c23f0),url(/images/hero.jpg) 55% 30%/cover no-repeat}
 .auth-sheet{position:relative;padding:42px 32px 28px;text-align:center;color:var(--ink)}
 .close{position:absolute;right:6px;top:6px;display:grid;place-items:center;min-width:44px;min-height:44px;border:0;background:none;color:var(--mute);font:400 26px var(--body);cursor:pointer}
 .brand{display:inline-block;text-decoration:none;font:700 23px var(--display);letter-spacing:-.8px;margin-bottom:22px}
