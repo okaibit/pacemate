@@ -106,7 +106,7 @@ progress::-webkit-progress-bar{background:var(--line)}progress::-webkit-progress
 .question{margin-bottom:30px}.question h1{font:600 clamp(29px,4vw,42px)/1.12 var(--display);letter-spacing:-.035em;margin:0;overflow-wrap:anywhere;outline:none}
 .description{font-size:14px;line-height:1.65;color:var(--mute);margin:15px 0 0}.optional{font-size:12px;color:var(--mute);margin:0 0 12px}
 .answer{margin:0;padding:0;border:0;min-width:0;min-inline-size:0}
-input,textarea{width:100%;min-width:0;min-height:54px;padding:14px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:12px;font:400 16px var(--body);box-sizing:border-box}
+input,textarea{width:100%;min-width:0;min-height:54px;padding:14px;background:var(--bg);color:var(--ink);border:1px solid color-mix(in srgb,var(--ink) 30%,transparent);border-radius:12px;font:400 16px var(--body);box-sizing:border-box}
 input[type=date]{appearance:none;-webkit-appearance:none;min-inline-size:0}input[type=date]::-webkit-date-and-time-value{text-align:left;min-width:0}textarea{resize:vertical;line-height:1.6}
 .options{display:grid;gap:10px}.options button,.sports button{border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);text-align:left;font:500 14px var(--body);padding:16px;min-height:52px;cursor:pointer}
 .options button[aria-pressed=true],.sports button[aria-pressed=true]{border-color:var(--ink);background:var(--soft);color:var(--ink);font-weight:700;outline:1px solid var(--ink);outline-offset:-2px}
@@ -118,6 +118,6 @@ input[type=date]{appearance:none;-webkit-appearance:none;min-inline-size:0}input
 .error{font-size:13px;color:var(--danger);line-height:1.6;margin:20px 0 0}
 .review :deep(.ph){aspect-ratio:5/4;max-height:340px}.review :deep(.pc){background:var(--bg)}.review>.text-button{display:block;margin:12px auto 0}.review :deep(.info){padding:20px}.review :deep(.facts){gap:14px}
 .photos :deep(li),.photos :deep(.main),.photos :deep(.add label){border-radius:12px}.photos :deep(.add label){color:var(--ink)}
-@media(min-width:701px){form{padding-bottom:30px}.answer{min-height:130px}}
+@media(min-width:701px){.flow{margin-top:12vh}form{padding-bottom:30px}.answer{min-height:130px}}
 @media(max-width:600px){.onboarding{padding-left:20px;padding-right:20px}.brand{padding:16px 0}.brand>a{font-size:24px}.flow{margin-top:12px}progress{margin-bottom:30px}.question{margin-bottom:24px}.question h1{font-size:32px}.actions{margin-top:28px}.review :deep(.ph){max-height:290px}}
 </style>

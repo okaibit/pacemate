@@ -2,7 +2,7 @@
 :root,:root[data-theme="light"]{--bg:#F5F2EB;--card:#FFFFFF;--field:#FFFFFF;--ink:#0D1B15;--mute:#5A6B63;--green:#1B6B4A;--coral:#F28B5B;--cta:#F28B5B;--on:#0D1B15;--on-green:#FFFFFF;--line:#E5E0D5;--soft:#EEEAE1;--danger:#B42318;--nav-bg:#FFFFFF;--chat-outgoing:#EEEAE1;
  --premium-bg:#0D1B15;--premium-ink:#FFFFFF;--premium-muted:#9AB0A6;
  --display:"Bricolage Grotesque","DM Sans",system-ui,sans-serif;--body:"DM Sans",system-ui,sans-serif;color-scheme:light}
-:root[data-theme="dark"]{--bg:#0D1B15;--card:#14261E;--field:#14261E;--ink:#FFFFFF;--mute:#9AB0A6;--green:#38D389;--coral:#F28B5B;--cta:#F28B5B;--on:#0D1B15;--on-green:#0D1B15;--line:rgba(255,255,255,0.08);--soft:#1C3327;--danger:#FF9D90;--nav-bg:#0D1B15;--chat-outgoing:#1C3327;color-scheme:dark}
+:root[data-theme="dark"]{--bg:#0D1B15;--card:#14261E;--field:#14261E;--ink:#FFFFFF;--mute:#B4C6BD;--green:#38D389;--coral:#F28B5B;--cta:#F28B5B;--on:#0D1B15;--on-green:#0D1B15;--line:rgba(255,255,255,0.16);--soft:#1C3327;--danger:#FF9D90;--nav-bg:#0D1B15;--chat-outgoing:#1C3327;color-scheme:dark}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.55 var(--body);padding:env(safe-area-inset-top,0) 0 0}
@@ -73,3 +73,10 @@ input[type=search],input[type=url],input[type=tel],input[type=time],.input{borde
 
 /* Color transitions never change sizes or positions. Reduced-motion rules above win. */
 body,.shell,.hdr,.tabs,.card,.modal,.pc,input,select,textarea,.chat-view,.chat-header,.chat-input,.message-list,.bubble{transition:background-color .24s ease,color .24s ease,border-color .24s ease}
+
+/* pacemate checkbox */
+input[type=checkbox]{appearance:none;-webkit-appearance:none;flex:none;display:inline-grid;place-content:center;width:20px;height:20px;margin:0;border:1.5px solid color-mix(in srgb,var(--ink) 45%,transparent);border-radius:6px;background:transparent;cursor:pointer}
+input[type=checkbox]:checked{background:var(--green);border-color:var(--green)}
+input[type=checkbox]:checked::after{content:"";width:5px;height:10px;margin-top:-2px;border:solid var(--on-green);border-width:0 2px 2px 0;transform:rotate(45deg)}
+input[type=checkbox]:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+input[type=checkbox]:disabled{opacity:.5;cursor:not-allowed}
