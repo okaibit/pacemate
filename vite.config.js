@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { FAQ, DEFAULT_DESCRIPTION, structuredData } from "./src/seo.js";
+import prerenderPages from "./scripts/prerender-pages.mjs";
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -22,4 +23,4 @@ function seo() {
   };
 }
 
-export default defineConfig({ plugins: [vue(), seo()] });
+export default defineConfig({ plugins: [vue(), seo(), prerenderPages()] });
